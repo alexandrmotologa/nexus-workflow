@@ -838,7 +838,21 @@
 
         async function init() {
             await loadDefinitions();
-            await loadInstances();
+
+            const params = new URLSearchParams(window.location.search);
+            const targetWorkflow = params.get('workflow');
+            const tab = params.get('tab');
+            const modal = params.get('modal');
+            const step = params.get('step') || 'reserve-travel';
+
+            await loadInstances(targetWorkflow);
+
+            if (tab) {
+                switchTab(tab);
+            }
+            if (modal === 'intervention') {
+                openInterventionModal(step, 'running');
+            }
         }
 
         async function loadDefinitions() {
@@ -859,14 +873,15 @@
             }
         }
 
-        async function loadInstances() {
+        async function loadInstances(preferredId) {
             try {
                 const res = await fetch('/api/v1/workflows?limit=50');
                 allInstances = await res.json();
                 renderInstanceCards(allInstances);
 
-                if (!currentWorkflowId && allInstances.length > 0) {
-                    selectWorkflow(allInstances[0].id);
+                if (allInstances.length > 0) {
+                    const idToSelect = preferredId && allInstances.some(i => i.id === preferredId) ? preferredId : allInstances[0].id;
+                    await selectWorkflow(idToSelect);
                 }
             } catch (e) {
                 console.error("Failed to load instances", e);

@@ -80,6 +80,25 @@ NexusWorkflow lets you write workflows directly in Java 21 using standard functi
 - **Java 21 Virtual Threads**: Workflow execution runs on lightweight virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`), keeping memory usage low during concurrency.
 - **Interactive SVG Dashboard**: Built-in web dashboard at `http://localhost:8080/dashboard` featuring live DAG visualization, a Gantt waterfall timeline, operator action modals, search filters, and one-click Mermaid diagram export.
 
+## Visual Tour & Dashboard
+
+NexusWorkflow includes an embedded web dashboard accessible at `http://localhost:8080/dashboard`. It provides real-time visual inspection and operational controls with zero external frontend dependencies.
+
+### Live SVG DAG Visualizer
+Workflows render as dynamic vector node graphs. Nodes update their visual styling based on real-time state transitions: emerald green for completed activities, amber with a pulsing glow for steps waiting on external signals, deep blue for in-flight tasks, and crimson for failures.
+
+![NexusWorkflow Real-Time DAG Visualizer](docs/images/nexus-dashboard-dag.png)
+
+### Latency Waterfall (Gantt View)
+The Gantt timeline inspects step execution latency across concurrent branches, identifying slow network activities and execution bottlenecks.
+
+![Gantt Waterfall Latency Timeline](docs/images/nexus-dashboard-waterfall.png)
+
+### Operator Intervention Console
+Operators can click directly on any step or use action triggers to manually intervene in running or stuck workflows. Options include re-running a failed step, skipping an optional step with an audit reason, or injecting an override JSON payload to keep downstream nodes moving.
+
+![Operator Step Intervention Console](docs/images/nexus-dashboard-intervention.png)
+
 ## Architecture
 
 NexusWorkflow follows Hexagonal Architecture:
