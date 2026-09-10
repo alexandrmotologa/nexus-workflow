@@ -1,138 +1,128 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <clipPath id="squircle-badge-clip-a">
+    <clipPath id="squircle-clip-a">
       <rect x="24" y="24" width="976" height="976" rx="220" />
     </clipPath>
 
-    <!-- Planar Lighting Gradients -->
-    <linearGradient id="charcoal-top" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2d3340"/>
-      <stop offset="100%" stop-color="#181a22"/>
-    </linearGradient>
-    <linearGradient id="charcoal-mid" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#222731"/>
-      <stop offset="100%" stop-color="#12141a"/>
-    </linearGradient>
-    <linearGradient id="charcoal-dark" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#161820"/>
-      <stop offset="100%" stop-color="#0a0b0f"/>
-    </linearGradient>
-
-    <linearGradient id="cyan-electric" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="grad-falcon-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00f5ff"/>
-      <stop offset="100%" stop-color="#00b4d8"/>
-    </linearGradient>
-    <linearGradient id="cyan-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
       <stop offset="100%" stop-color="#0284c7"/>
     </linearGradient>
-    <linearGradient id="cyan-deep" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0096c7"/>
-      <stop offset="100%" stop-color="#03045e"/>
-    </linearGradient>
 
-    <linearGradient id="gold-culmen" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fde047"/>
-      <stop offset="100%" stop-color="#f59e0b"/>
-    </linearGradient>
-    <linearGradient id="gold-hook" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f59e0b"/>
-      <stop offset="100%" stop-color="#b45309"/>
+    <linearGradient id="grad-falcon-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ea580c"/>
     </linearGradient>
   </defs>
 
   <!-- Luxury White Squircle Container -->
   <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />
 
-  <g clip-path="url(#squircle-badge-clip-a)">
-    <!-- Falcon Head Group, positioned and scaled to match Narwhal placement -->
-    <g transform="translate(520, 520) scale(1.06) translate(-500, -500)">
+  <g clip-path="url(#squircle-clip-a)">
+    <!-- Centered Badge System -->
+    <g transform="translate(512, 512)">
 
-      <!-- Bold Outer Contour/Backdrop -->
+      <!-- 1. The Hexagonal Architecture Frame (Like IdemGate & Order Engine) -->
+      <!-- Points for hexagon centered at (0,0), radius ~390 -->
       <polygon points="
-        240,320 440,240 580,270 700,380 790,480 770,550 710,540 650,510 590,620 500,740 400,760 320,680 230,550 180,420
-      " fill="#090b10" stroke="#090b10" stroke-width="20" stroke-linejoin="round" />
+        0,-390
+        338,-195
+        338,195
+        0,390
+        -338,195
+        -338,-195
+      " fill="none" stroke="#0f172a" stroke-width="40" stroke-linejoin="round" />
 
-      <!-- FACET 1: Crown Forehead (Charcoal Top) -->
-      <polygon points="440,240 580,270 540,370 410,350" 
-        fill="url(#charcoal-top)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- 2. The Falcon Silhouette (Monolithic Geometric Raptor in Soaring Profile/Flight) -->
+      <!-- Head and Torso -->
+      <path d="
+        M 0,-280
+        C 45,-280 85,-250 105,-205
+        L 180,-175
+        L 140,-130
+        L 170,-115
+        L 110,-70
+        C 120,-30 115,20 90,80
+        L 150,230
+        L 75,270
+        L 0,330
+        L -75,270
+        L -150,230
+        L -90,80
+        C -115,20 -120,-30 -110,-70
+        L -170,-115
+        L -140,-130
+        L -180,-175
+        L -105,-205
+        C -85,-250 -45,-280 0,-280 Z
+      " fill="#0f172a" />
 
-      <!-- FACET 2: Rear Crest Blade (Charcoal Dark) -->
-      <polygon points="240,320 440,240 410,350 280,410" 
-        fill="url(#charcoal-dark)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- Wings - Sweeping Outward Geometric Blades (Parallel Virtual Threads) -->
+      <!-- Left Wing Blade -->
+      <path d="
+        M -110,-70
+        L -290,-150
+        L -230,-40
+        L -300,-10
+        L -210,60
+        L -260,110
+        L -130,130
+        L -90,80
+        Z
+      " fill="#0f172a" />
 
-      <!-- FACET 3: Upper Beak Culmen (Gold Bright) -->
-      <polygon points="580,270 700,380 640,420 540,370" 
-        fill="url(#gold-culmen)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- Right Wing Blade -->
+      <path d="
+        M 110,-70
+        L 290,-150
+        L 230,-40
+        L 300,-10
+        L 210,60
+        L 260,110
+        L 130,130
+        L 90,80
+        Z
+      " fill="#0f172a" />
 
-      <!-- FACET 4: Raptor Hook Tip (Curving Downward Razor Hook) -->
-      <polygon points="700,380 790,480 750,530 690,470 640,420" 
-        fill="url(#gold-hook)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- 3. Wing Inset Accents (Electric Cyan Velocity Slots) -->
+      <path d="M -240,-90 L -170,-60 L -180,-15 L -250,-45 Z" fill="url(#grad-falcon-cyan)" />
+      <path d="M -210,15 L -150,45 L -170,80 L -220,55 Z" fill="url(#grad-falcon-cyan)" />
 
-      <!-- FACET 5: Lower Beak & Tomial Notch -->
-      <polygon points="750,530 770,550 710,540 690,470" 
-        fill="#92400e" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <path d="M 240,-90 L 170,-60 L 180,-15 L 250,-45 Z" fill="url(#grad-falcon-cyan)" />
+      <path d="M 210,15 L 150,45 L 170,80 L 220,55 Z" fill="url(#grad-falcon-cyan)" />
 
-      <!-- FACET 6: Cere / Bridge Accent (Electric Cyan Glow) -->
-      <polygon points="540,370 640,420 605,465 520,420" 
-        fill="url(#cyan-glow)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- 4. Falcon Chest Core - Hexagonal Negative Space Cutout -->
+      <polygon points="
+        0,-60
+        52,-30
+        52,30
+        0,60
+        -52,30
+        -52,-30
+      " fill="#ffffff" />
 
-      <!-- FACET 7: Ocular Brow & Predatory Eye Socket (Matte Black) -->
-      <polygon points="410,350 540,370 520,420 460,455 380,425" 
-        fill="url(#charcoal-dark)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- 5. Central Nexus Jewel Node (Inside Hex Core) -->
+      <circle cx="0" cy="0" r="22" fill="#0f172a" />
+      <circle cx="0" cy="0" r="14" fill="#00f5ff" />
+      <circle cx="0" cy="0" r="6" fill="#ffffff" />
 
-      <!-- THE FALCON EYE: Fierce Glowing Cyan Diamond -->
-      <polygon points="455,420 515,425 485,455 440,440" 
-        fill="#ffffff" stroke="#090b10" stroke-width="8" stroke-linejoin="round" />
-      <polygon points="450,423 510,427 480,452" 
-        fill="#00ffff" />
-      <polygon points="470,428 498,432 482,444" 
-        fill="#090b10" />
+      <!-- 6. Integrated DAG Directed Flow Vector (From Tail Through Core to Head) -->
+      <g stroke="url(#grad-falcon-amber)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="0" y1="210" x2="0" y2="95" />
+        <polyline points="-25,130 0,95 25,130" fill="none" />
+      </g>
+      <circle cx="0" cy="210" r="15" fill="#f59e0b" />
+      <circle cx="0" cy="210" r="7" fill="#ffffff" />
 
-      <!-- FACET 8: Malar Stripe (Peregrine Mustache - Jet Black) -->
-      <polygon points="520,420 605,465 570,550 490,540 460,455" 
-        fill="url(#charcoal-dark)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- 7. Focused Cyan Eyes -->
+      <polygon points="-45,-215 -18,-205 -32,-190" fill="#00f5ff" />
+      <polygon points="45,-215 18,-205 32,-190" fill="#00f5ff" />
 
-      <!-- FACET 9: Cheek Auricular Plate (Ice White/Cyan Contrast) -->
-      <polygon points="380,425 460,455 490,540 420,530 350,490" 
-        fill="#f0f9ff" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
+      <!-- 8. Golden Beak Tip Accent -->
+      <polygon points="0,-180 18,-150 -18,-150" fill="url(#grad-falcon-amber)" />
 
-      <!-- FACET 10: Throat & Under-Beak Jaw (Electric Cyan Vivid) -->
-      <polygon points="605,465 690,470 710,540 650,510 570,550" 
-        fill="url(#cyan-electric)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 11: Jugulum / Fore-Throat (Electric Cyan Vivid) -->
-      <polygon points="570,550 650,510 590,620 510,610 490,540" 
-        fill="url(#cyan-electric)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 12: Mid Nape Feather Blade (Electric Cyan Vivid) -->
-      <polygon points="280,410 410,350 380,425 350,490 230,480" 
-        fill="url(#cyan-electric)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 13: Lower Nape Blade (Charcoal Mid) -->
-      <polygon points="240,320 280,410 230,480 180,420" 
-        fill="url(#charcoal-mid)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 14: Flank Fold Plate (Cyan Deep) -->
-      <polygon points="230,480 350,490 320,590 230,550" 
-        fill="url(#cyan-deep)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 15: Lower Breast Shield (Charcoal Mid) -->
-      <polygon points="350,490 420,530 390,640 320,590" 
-        fill="url(#charcoal-mid)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 16: Chest Keel Center (Charcoal Top) -->
-      <polygon points="420,530 490,540 510,610 470,690 390,640" 
-        fill="url(#charcoal-top)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 17: Lower Throat Armor (Cyan Deep) -->
-      <polygon points="510,610 590,620 500,740 470,690" 
-        fill="url(#cyan-deep)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
-      <!-- FACET 18: Breast Base Wing Cap (Charcoal Dark) -->
-      <polygon points="320,590 390,640 470,690 500,740 400,760 320,680 230,550" 
-        fill="url(#charcoal-dark)" stroke="#090b10" stroke-width="11" stroke-linejoin="round" />
-
+      <!-- 9. Head Crown Nexus Node -->
+      <circle cx="0" cy="-240" r="8" fill="#00f5ff" />
     </g>
   </g>
 </svg>

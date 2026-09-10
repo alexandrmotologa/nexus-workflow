@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <clipPath id="squircle-badge-clip">
+      <rect x="24" y="24" width="976" height="976" rx="220" />
+    </clipPath>
+
+    <!-- Gradients -->
+    <linearGradient id="falcon-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="falcon-cyan-high" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="falcon-cyan-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="falcon-cyan-deep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <linearGradient id="falcon-slate-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="falcon-obsidian" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </linearGradient>
+
+    <filter id="badge-shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#090d16" flood-opacity="0.10" />
+    </filter>
+  </defs>
+
+  <!-- Luxury White Squircle Container -->
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="5" />
+
+  <g clip-path="url(#squircle-badge-clip)">
+    <g transform="translate(512, 512) scale(1.05) translate(-512, -512)" filter="url(#badge-shadow)">
+
+      <!-- Subtle DAG Graph Coordinate Vectors in Background -->
+      <g stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="6,8" opacity="0.6">
+        <line x1="200" y1="620" x2="480" y2="480" />
+        <line x1="480" y1="480" x2="820" y2="380" />
+      </g>
+      <circle cx="200" cy="620" r="5" fill="#00f5ff" />
+      <circle cx="820" cy="380" r="5" fill="#f59e0b" />
+
+      <!-- ================= 10 ICONIC ORIGAMI PLANES (Clean, Sleek, Aerodynamic) ================= -->
+
+      <!-- 1. Upper Crest Crown (Deep Obsidian) -->
+      <polygon points="400,240 560,260 480,360 340,330" fill="url(#falcon-obsidian)" />
+
+      <!-- 2. Forehead Diamond Plate (Electric Cyan Light) -->
+      <polygon points="560,260 700,340 600,410 480,360" fill="url(#falcon-cyan-high)" />
+
+      <!-- 3. Sleek Raptor Beak (Gold/Amber Pointed Talon) -->
+      <polygon points="700,340 820,400 750,440 650,410" fill="url(#falcon-gold)" />
+      <polygon points="820,400 840,430 780,455 750,440" fill="#c2410c" />
+
+      <!-- 4. Lower Beak Undertomb (Dark Amber) -->
+      <polygon points="750,440 780,455 710,470 680,440" fill="#9a3412" />
+
+      <!-- 5. Ocular Brow Shield (Deep Midnight Slate) -->
+      <polygon points="600,410 700,340 650,410 680,440 580,470" fill="url(#falcon-obsidian)" />
+
+      <!-- 6. The Nexus Eye (Glowing Cyan Node Jewel) -->
+      <polygon points="615,395 660,408 638,435 598,422" fill="#ffffff" />
+      <polygon points="620,398 655,410 635,430 605,420" fill="#00f5ff" />
+      <circle cx="630" cy="415" r="4.5" fill="#090d16" />
+
+      <!-- 7. Cheek & Throat Keel (Pure Ice White Plane - Strong Contrast) -->
+      <polygon points="480,360 600,410 580,470 520,550 420,470" fill="#ffffff" />
+
+      <!-- 8. Throat Forward Shield (Electric Cyan Vivid) -->
+      <polygon points="580,470 680,440 710,470 660,560 580,570 520,550" fill="url(#falcon-cyan-mid)" />
+
+      <!-- 9. Rear Nape Blade (Charcoal Mid) -->
+      <polygon points="260,380 340,330 420,470 320,530" fill="url(#falcon-slate-mid)" />
+
+      <!-- 10. Wing Upper Blade (Primary DAG Vector - Electric Cyan) -->
+      <polygon points="420,470 520,550 580,570 530,670 410,610 320,530" fill="url(#falcon-cyan-high)" />
+
+      <!-- 11. Wing Mid Blade (Secondary Parallel Stream - Cobalt Blue) -->
+      <polygon points="320,530 410,610 530,670 470,760 340,700 250,620" fill="url(#falcon-cyan-deep)" />
+
+      <!-- 12. Wing Lower Blade (Trailing Saga Vector - Deep Obsidian) -->
+      <polygon points="250,620 340,700 470,760 410,830 280,780 200,690" fill="url(#falcon-obsidian)" />
+
+      <!-- 13. Wing Apex Gold Quill Accent (Matches Golden Beak) -->
+      <polygon points="470,760 530,670 560,740 490,810" fill="url(#falcon-gold)" />
+
+      <!-- Central Nexus Node (Durable Workflow Focal Jewel) -->
+      <circle cx="500" cy="530" r="16" fill="#090d16" />
+      <circle cx="500" cy="530" r="10" fill="#00f5ff" />
+      <circle cx="500" cy="530" r="4.5" fill="#ffffff" />
+    </g>
+  </g>
+</svg>
