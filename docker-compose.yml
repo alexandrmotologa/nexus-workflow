@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  nexus-postgres:
+    image: postgres:16-alpine
+    container_name: nexus-postgres
+    environment:
+      POSTGRES_DB: nexusdb
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_secret_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexusdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nexus-workflow:
+    build: .
+    container_name: nexus-workflow
+    depends_on:
+      nexus-postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://nexus-postgres:5432/nexusdb
+      SPRING_DATASOURCE_USERNAME: nexus
+      SPRING_DATASOURCE_PASSWORD: nexus_secret_password
+      SPRING_FLYWAY_ENABLED: "true"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,metrics,prometheus"
+    restart: on-failure
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: nexus-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - nexus-workflow
+
+volumes:
+  nexus_pgdata:

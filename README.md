@@ -1,0 +1,167 @@
+<h1 align="center">NexusWorkflow</h1>
+
+<p align="center">
+  <a href="https://github.com/alexandrmotologa/nexus-workflow/actions/workflows/ci.yml"><img src="https://github.com/alexandrmotologa/nexus-workflow/actions/workflows/ci.yml/badge.svg" alt="Build Status" /></a>
+  <img src="https://img.shields.io/badge/Java-21%20LTS-orange.svg" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.3.3-brightgreen.svg" alt="Spring Boot" />
+  <img src="https://img.shields.io/badge/Architecture-Hexagonal-blue.svg" alt="Hexagonal Architecture" />
+  <img src="https://img.shields.io/badge/ArchUnit-Enforced-purple.svg" alt="ArchUnit" />
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+</p>
+
+<p align="center">
+  Code-first distributed workflow and DAG engine in Java 21 with event-sourced durable execution, virtual threads, backward saga compensation, and an interactive SVG dashboard.
+</p>
+
+---
+
+```
+                       +-----------------------------------+
+                       |      REST API / Web Dashboard     |
+                       +-----------------+-----------------+
+                                         |
+                            (Start / Signal / Replay)
+                                         v
++-------------------------------------------------------------------------+
+|                              Nexus Engine                               |
+|                                                                         |
+|  +------------------------+                     +--------------------+  |
+|  |     Workflow DSL       |                     | Deterministic      |  |
+|  | (Code-First Java 21)   |                     | Replay Engine      |  |
+|  +-----------+------------+                     +---------+----------+  |
+|              |                                            |             |
+|              +--------------------+-----------------------+             |
+|                                   |                                     |
+|                       Java 21 Virtual Threads                           |
+|                       (Concurrent Task Runner)                          |
+|                                   |                                     |
+|              +--------------------+-----------------------+             |
+|              |                                            |             |
+|              v                                            v             |
+|  +------------------------+                     +--------------------+  |
+|  |   Saga Coordinator     |                     | Signal & Timer     |  |
+|  | (Backward Compensate)  |                     | (Chronos / V-Th)   |  |
+|  +------------------------+                     +--------------------+  |
++-----------------------------------+-------------------------------------+
+                                    |
+            +-----------------------+-----------------------+
+            |                                               |
+            v                                               v
++-----------------------+                       +-----------------------+
+|  nexus_workflow_      |                       |  nexus_workflow_      |
+|  instances            |                       |  events (Append-Only) |
++-----------------------+                       +-----------------------+
+```
+
+## Overview
+
+Complex backend workflows like customer onboarding, KYC document verification, and multi-service order processing often involve long delays, human approvals, or multi-step rollbacks. Configuring these in static JSON or XML definitions separates business logic from code and complicates local debugging.
+
+NexusWorkflow lets you write workflows directly in Java 21 using standard functions and a fluent builder. Every state transition is stored in an append-only PostgreSQL event table. If a worker pod crashes mid-execution, a standby worker reloads the instance history, replays completed steps without re-executing external network calls, and continues execution.
+
+## Key Capabilities
+
+- **Code-First Java 21 DSL**: Define multi-step DAGs with activity calls, sleeps, external signals, and parallel branches directly in Java.
+- **Durable Event-Sourced Execution**: Completed step outputs are stored as immutable events. On crash recovery, completed activities return cached outputs and avoid duplicate side effects.
+- **Non-Determinism Detection**: Detects if code changes altered step ordering for in-flight workflows, throwing a `NonDeterministicException` before state corruption occurs.
+- **Backward Saga Compensation**: When an activity exhausts its retries, the engine navigates backward through completed steps and executes declared compensation routines in reverse order.
+- **Java 21 Virtual Threads**: Workflow execution runs on lightweight virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`), keeping memory usage low during concurrency.
+- **Real-Time SVG Visualizer (SSE)**: An embedded web interface at `http://localhost:8080/dashboard` generates an interactive SVG graph with live status updates over Server-Sent Events.
+- **Human-in-the-Loop Signals**: Workflows can pause and await external webhook callbacks or manual approvals, which operators can inject directly from the web console.
+
+## Architecture
+
+NexusWorkflow follows Hexagonal Architecture:
+
+- `domain`: Pure Java 21 domain entities, records, and sealed events. Contains zero dependencies on Spring, Hibernate, or Jackson. Enforced by ArchUnit tests.
+- `application`: Fluent builder DSL, `WorkflowEngineImpl`, `DeterministicReplayEngine`, and `SagaCompensationCoordinator`.
+- `infrastructure`: Spring Boot 3.3.3 adapters including PostgreSQL event store persistence, Flyway migrations, REST controllers, and the SVG dashboard.
+
+## Defining a Workflow
+
+```java
+WorkflowDefinition workflow = Workflow.define("user-onboarding")
+    .version(1)
+    .step("create-account", "CreateAccountActivity", 
+          RetryPolicy.builder().maxAttempts(3).build(), 
+          "DeleteAccountActivity")
+    .step("provision-storage", "ProvisionStorageActivity", 
+          RetryPolicy.defaultPolicy(), 
+          "ReleaseStorageActivity")
+    .waitForSignal("wait-kyc", "ID_VERIFIED", Duration.ofHours(24))
+    .step("send-welcome", "SendWelcomeEmailActivity")
+    .onFailure("GlobalCleanupActivity")
+    .build();
+```
+
+## Quick Start
+
+### Prerequisites
+
+- Java 21 LTS
+- Maven 3.9+
+- Docker and Docker Compose (optional for full stack run)
+
+### Running Locally
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/alexandrmotologa/nexus-workflow.git
+   cd nexus-workflow
+   ```
+
+2. Start PostgreSQL via Docker Compose:
+   ```bash
+   docker compose up -d nexus-postgres
+   ```
+
+3. Run the application:
+   ```bash
+   mvn spring-boot:run
+   ```
+
+4. Open your browser:
+   - Live SVG DAG Dashboard: `http://localhost:8080/dashboard`
+   - OpenAPI Swagger UI: `http://localhost:8080/swagger-ui.html`
+   - Prometheus Metrics: `http://localhost:8080/actuator/prometheus`
+
+## REST API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/workflows/{definitionId}/start` | Start a new workflow run |
+| `POST` | `/api/v1/workflows/{workflowId}/signals/{signalName}` | Deliver an external signal |
+| `POST` | `/api/v1/workflows/{workflowId}/cancel` | Cancel an active execution |
+| `GET` | `/api/v1/workflows` | List workflow instances |
+| `GET` | `/api/v1/workflows/{workflowId}/status` | Get current execution status |
+| `GET` | `/api/v1/workflows/{workflowId}/history` | Get immutable event audit history |
+| `GET` | `/api/v1/workflows/{workflowId}/live` | SSE stream for real-time updates |
+| `GET` | `/api/v1/workflows/definitions` | List registered workflow definitions |
+
+### Example: Triggering a Workflow
+
+```bash
+curl -X POST http://localhost:8080/api/v1/workflows/user-onboarding/start \
+  -H "Content-Type: application/json" \
+  -d '{"input": {"userId": "usr_7891", "email": "dev@example.com"}}'
+```
+
+### Example: Delivering a Signal
+
+```bash
+curl -X POST http://localhost:8080/api/v1/workflows/{workflowId}/signals/ID_VERIFIED \
+  -H "Content-Type: application/json" \
+  -d '{"payload": {"approved": true, "auditor": "ComplianceTeam"}}'
+```
+
+## Running Tests
+
+Run the test suite, including ArchUnit domain rules and deterministic replay tests:
+
+```bash
+mvn clean test
+```
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
