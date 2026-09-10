@@ -16,9 +16,11 @@ import com.engine.nexus.domain.model.WorkflowId;
 import com.engine.nexus.domain.model.WorkflowInstance;
 import com.engine.nexus.domain.model.WorkflowStatus;
 import com.engine.nexus.domain.port.in.CancelWorkflowUseCase;
+import com.engine.nexus.domain.port.in.OperatorInterventionUseCase;
 import com.engine.nexus.domain.port.in.QueryWorkflowQuery;
 import com.engine.nexus.domain.port.in.SignalWorkflowUseCase;
 import com.engine.nexus.domain.port.in.StartWorkflowUseCase;
+import com.engine.nexus.domain.port.out.NotificationPort;
 import com.engine.nexus.domain.port.out.TimerPort;
 import com.engine.nexus.domain.port.out.WorkflowEventStorePort;
 import com.engine.nexus.domain.port.out.WorkflowRegistryPort;
@@ -42,7 +44,8 @@ public class WorkflowEngineImpl implements
         StartWorkflowUseCase,
         SignalWorkflowUseCase,
         QueryWorkflowQuery,
-        CancelWorkflowUseCase {
+        CancelWorkflowUseCase,
+        OperatorInterventionUseCase {
 
     private final WorkflowRegistryPort workflowRegistry;
     private final ActivityRegistry activityRegistry;
@@ -50,6 +53,7 @@ public class WorkflowEngineImpl implements
     private final DeterministicReplayEngine replayEngine;
     private final SagaCompensationCoordinator compensationCoordinator;
     private final TimerPort timerPort;
+    private final NotificationPort notificationPort;
     private final ExecutorService virtualExecutor;
     private final Map<WorkflowId, Object> instanceLocks = new ConcurrentHashMap<>();
     private final Random random = new Random();
@@ -60,7 +64,8 @@ public class WorkflowEngineImpl implements
             WorkflowEventStorePort eventStore,
             DeterministicReplayEngine replayEngine,
             SagaCompensationCoordinator compensationCoordinator,
-            TimerPort timerPort
+            TimerPort timerPort,
+            NotificationPort notificationPort
     ) {
         this.workflowRegistry = workflowRegistry;
         this.activityRegistry = activityRegistry;
@@ -68,16 +73,41 @@ public class WorkflowEngineImpl implements
         this.replayEngine = replayEngine;
         this.compensationCoordinator = compensationCoordinator;
         this.timerPort = timerPort;
+        this.notificationPort = notificationPort;
         this.virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    }
+
+    public WorkflowEngineImpl(
+            WorkflowRegistryPort workflowRegistry,
+            ActivityRegistry activityRegistry,
+            WorkflowEventStorePort eventStore,
+            DeterministicReplayEngine replayEngine,
+            SagaCompensationCoordinator compensationCoordinator,
+            TimerPort timerPort
+    ) {
+        this(workflowRegistry, activityRegistry, eventStore, replayEngine, compensationCoordinator, timerPort, null);
     }
 
     @Override
     public WorkflowInstance startWorkflow(String definitionId, Map<String, Object> input) {
-        return startWorkflow(WorkflowId.generate(), definitionId, input);
+        return startWorkflow(WorkflowId.generate(), definitionId, input, null);
     }
 
     @Override
     public WorkflowInstance startWorkflow(WorkflowId customId, String definitionId, Map<String, Object> input) {
+        return startWorkflow(customId, definitionId, input, null);
+    }
+
+    @Override
+    public WorkflowInstance startWorkflow(WorkflowId customId, String definitionId, Map<String, Object> input, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<WorkflowId> existing = eventStore.findWorkflowByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return getWorkflowInstance(existing.get());
+            }
+            eventStore.tryAcquireIdempotencyKey(idempotencyKey, customId);
+        }
+
         WorkflowDefinition definition = workflowRegistry.getDefinition(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown workflow definition: " + definitionId));
 
@@ -151,6 +181,49 @@ public class WorkflowEngineImpl implements
 
         instance.cancel(reason);
         eventStore.saveInstance(instance);
+        notifyWebhooks(instance);
+    }
+
+    @Override
+    public void retryStep(WorkflowId workflowId, StepId stepId) {
+        WorkflowInstance instance = getWorkflowInstance(workflowId);
+        instance.resumeAfterIntervention(stepId);
+        eventStore.saveInstance(instance);
+        virtualExecutor.submit(() -> executeWorkflowRun(workflowId));
+    }
+
+    @Override
+    public void skipStep(WorkflowId workflowId, StepId stepId, String reason) {
+        WorkflowInstance instance = getWorkflowInstance(workflowId);
+        instance.resumeAfterIntervention(stepId);
+        eventStore.saveInstance(instance);
+
+        long nextSeq = eventStore.getNextSequenceNumber(workflowId);
+        eventStore.appendEvent(new NexusDomainEvent.StepSkippedEvent(
+                workflowId,
+                nextSeq,
+                Instant.now(),
+                stepId,
+                reason != null ? reason : "Operator skipped step"
+        ));
+        virtualExecutor.submit(() -> executeWorkflowRun(workflowId));
+    }
+
+    @Override
+    public void overrideStep(WorkflowId workflowId, StepId stepId, Map<String, Object> customOutput) {
+        WorkflowInstance instance = getWorkflowInstance(workflowId);
+        instance.resumeAfterIntervention(stepId);
+        eventStore.saveInstance(instance);
+
+        long nextSeq = eventStore.getNextSequenceNumber(workflowId);
+        eventStore.appendEvent(new NexusDomainEvent.StepOverriddenEvent(
+                workflowId,
+                nextSeq,
+                Instant.now(),
+                stepId,
+                customOutput != null ? customOutput : Collections.emptyMap()
+        ));
+        virtualExecutor.submit(() -> executeWorkflowRun(workflowId));
     }
 
     public void executeWorkflowRun(WorkflowId workflowId) {
@@ -165,8 +238,17 @@ public class WorkflowEngineImpl implements
                 WorkflowDefinition definition = workflowRegistry.getDefinition(instance.getDefinitionId())
                         .orElseThrow(() -> new IllegalStateException("Definition missing for workflow: " + instance.getDefinitionId()));
 
+                // Load latest snapshot for fast O(1) replay
+                Optional<Map<String, Object>> latestSnapshot = eventStore.getLatestSnapshot(workflowId);
+                long snapshotSeq = eventStore.getLatestSnapshotSequenceNumber(workflowId);
+
                 List<NexusDomainEvent> events = eventStore.getEventsForWorkflow(workflowId);
-                DeterministicReplayEngine.ReplayState replayState = replayEngine.replay(workflowId, events);
+                DeterministicReplayEngine.ReplayState replayState = replayEngine.replay(
+                        workflowId,
+                        latestSnapshot.orElse(Collections.emptyMap()),
+                        snapshotSeq,
+                        events
+                );
                 replayEngine.validateDeterminism(definition, replayState);
 
                 long currentSeq = replayState.lastSequenceNumber();
@@ -209,9 +291,115 @@ public class WorkflowEngineImpl implements
                                 completedSteps.add(stepDef.stepId());
                                 instance.updateOutput(output);
                                 eventStore.saveInstance(instance);
+                                checkSnapshot(workflowId, currentSeq, runState);
                             } else {
-                                // Step failed permanently
                                 handleStepFailure(definition, instance, stepDef, completedSteps, runState, currentSeq, "Max retries exceeded");
+                                return;
+                            }
+                        }
+
+                        case CONDITIONAL -> {
+                            currentSeq++;
+                            eventStore.appendEvent(new NexusDomainEvent.StepStartedEvent(
+                                    workflowId,
+                                    currentSeq,
+                                    Instant.now(),
+                                    stepDef.stepId(),
+                                    stepDef.type().name(),
+                                    runState
+                            ));
+                            instance.transitionToStep(stepDef.stepId());
+                            eventStore.saveInstance(instance);
+
+                            boolean conditionPassed = stepDef.condition() != null && stepDef.condition().test(runState);
+                            StepDefinition branchToExecute = conditionPassed ? stepDef.thenBranch() : stepDef.otherwiseBranch();
+
+                            if (branchToExecute != null) {
+                                Map<String, Object> branchOut = executeWithRetry(workflowId, branchToExecute, runState);
+                                if (branchOut != null) {
+                                    currentSeq++;
+                                    eventStore.appendEvent(new NexusDomainEvent.StepCompletedEvent(
+                                            workflowId,
+                                            currentSeq,
+                                            Instant.now(),
+                                            stepDef.stepId(),
+                                            branchOut
+                                    ));
+                                    runState.putAll(branchOut);
+                                    completedSteps.add(stepDef.stepId());
+                                    instance.updateOutput(branchOut);
+                                    eventStore.saveInstance(instance);
+                                    checkSnapshot(workflowId, currentSeq, runState);
+                                } else {
+                                    handleStepFailure(definition, instance, branchToExecute, completedSteps, runState, currentSeq, "Conditional branch execution failed");
+                                    return;
+                                }
+                            } else {
+                                // Branch was empty; mark step completed
+                                currentSeq++;
+                                eventStore.appendEvent(new NexusDomainEvent.StepCompletedEvent(
+                                        workflowId,
+                                        currentSeq,
+                                        Instant.now(),
+                                        stepDef.stepId(),
+                                        Map.of("conditionMet", conditionPassed)
+                                ));
+                                completedSteps.add(stepDef.stepId());
+                                eventStore.saveInstance(instance);
+                            }
+                        }
+
+                        case CHILD_WORKFLOW -> {
+                            currentSeq++;
+                            String childDefId = stepDef.childWorkflowDefinitionId();
+                            Map<String, Object> childInput = stepDef.childInputMapper() != null
+                                    ? stepDef.childInputMapper().map(runState)
+                                    : runState;
+
+                            WorkflowId childId = WorkflowId.of(workflowId.value() + "_child_" + stepDef.stepId().value());
+                            eventStore.appendEvent(new NexusDomainEvent.ChildWorkflowStartedEvent(
+                                    workflowId,
+                                    currentSeq,
+                                    Instant.now(),
+                                    stepDef.stepId(),
+                                    childId,
+                                    childDefId
+                            ));
+                            instance.transitionToStep(stepDef.stepId());
+                            eventStore.saveInstance(instance);
+
+                            // Execute child synchronously
+                            WorkflowInstance childInstance = startWorkflow(childId, childDefId, childInput);
+                            executeWorkflowRun(childId);
+                            WorkflowInstance finishedChild = getWorkflowInstance(childId);
+
+                            if (finishedChild.getStatus() == WorkflowStatus.COMPLETED) {
+                                currentSeq++;
+                                eventStore.appendEvent(new NexusDomainEvent.ChildWorkflowCompletedEvent(
+                                        workflowId,
+                                        currentSeq,
+                                        Instant.now(),
+                                        stepDef.stepId(),
+                                        childId,
+                                        finishedChild.getOutputPayload()
+                                ));
+                                runState.putAll(finishedChild.getOutputPayload());
+                                completedSteps.add(stepDef.stepId());
+                                instance.updateOutput(finishedChild.getOutputPayload());
+                                eventStore.saveInstance(instance);
+                                checkSnapshot(workflowId, currentSeq, runState);
+                            } else {
+                                currentSeq++;
+                                String childErr = finishedChild.getErrorMessage().orElse("Child workflow failed");
+                                eventStore.appendEvent(new NexusDomainEvent.ChildWorkflowFailedEvent(
+                                        workflowId,
+                                        currentSeq,
+                                        Instant.now(),
+                                        stepDef.stepId(),
+                                        childId,
+                                        childErr
+                                ));
+                                handleStepFailure(definition, instance, stepDef, completedSteps, runState, currentSeq, childErr);
                                 return;
                             }
                         }
@@ -243,6 +431,7 @@ public class WorkflowEngineImpl implements
                                 completedSteps.add(stepDef.stepId());
                                 instance.updateOutput(parallelOutputs);
                                 eventStore.saveInstance(instance);
+                                checkSnapshot(workflowId, currentSeq, runState);
                             } else {
                                 handleStepFailure(definition, instance, stepDef, completedSteps, runState, currentSeq, "Parallel branch failed");
                                 return;
@@ -265,6 +454,7 @@ public class WorkflowEngineImpl implements
                                 completedSteps.add(stepDef.stepId());
                                 instance.updateOutput(signalPayload);
                                 eventStore.saveInstance(instance);
+                                checkSnapshot(workflowId, currentSeq, runState);
                             } else {
                                 currentSeq++;
                                 eventStore.appendEvent(new NexusDomainEvent.SignalWaitingEvent(
@@ -311,6 +501,8 @@ public class WorkflowEngineImpl implements
                 ));
                 instance.complete(runState);
                 eventStore.saveInstance(instance);
+                eventStore.saveSnapshot(workflowId, currentSeq, runState);
+                notifyWebhooks(instance);
 
             } catch (Exception e) {
                 WorkflowInstance instance = eventStore.findInstance(workflowId).orElse(null);
@@ -324,10 +516,29 @@ public class WorkflowEngineImpl implements
                     ));
                     instance.fail(e.getMessage());
                     eventStore.saveInstance(instance);
+                    notifyWebhooks(instance);
                 }
             } finally {
                 instanceLocks.remove(workflowId);
             }
+        }
+    }
+
+    private void checkSnapshot(WorkflowId workflowId, long currentSeq, Map<String, Object> runState) {
+        if (currentSeq % 5 == 0) { // Checkpoint every 5 events
+            eventStore.saveSnapshot(workflowId, currentSeq, runState);
+        }
+    }
+
+    private void notifyWebhooks(WorkflowInstance instance) {
+        if (notificationPort != null) {
+            notificationPort.notifyStatusChange(
+                    instance.getId(),
+                    instance.getDefinitionId(),
+                    instance.getStatus(),
+                    instance.getOutputPayload(),
+                    instance.getErrorMessage().orElse(null)
+            );
         }
     }
 
@@ -365,7 +576,6 @@ public class WorkflowEngineImpl implements
                 }
 
                 try {
-                    // Exponential backoff + jitter calculation
                     long delayMillis = delay.toMillis();
                     if (policy.jitterFactor() > 0.0) {
                         double jitterRange = delayMillis * policy.jitterFactor();
@@ -399,7 +609,6 @@ public class WorkflowEngineImpl implements
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         for (StepDefinition branch : branches) {
-            // If already replayed
             if (replayState.isStepCompleted(branch.stepId())) {
                 combinedOutputs.putAll(replayState.getStepOutput(branch.stepId()));
                 continue;
@@ -442,6 +651,7 @@ public class WorkflowEngineImpl implements
     ) {
         instance.startCompensation(failedStep.stepId());
         eventStore.saveInstance(instance);
+        notifyWebhooks(instance);
 
         compensationCoordinator.rollback(
                 definition,
@@ -454,5 +664,6 @@ public class WorkflowEngineImpl implements
 
         instance.finishCompensation(reason);
         eventStore.saveInstance(instance);
+        notifyWebhooks(instance);
     }
 }

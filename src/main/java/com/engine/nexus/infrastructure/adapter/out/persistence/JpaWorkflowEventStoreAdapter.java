@@ -27,15 +27,21 @@ public class JpaWorkflowEventStoreAdapter implements WorkflowEventStorePort {
 
     private final JpaWorkflowInstanceRepository instanceRepository;
     private final JpaWorkflowEventRepository eventRepository;
+    private final JpaWorkflowSnapshotRepository snapshotRepository;
+    private final JpaIdempotencyKeyRepository idempotencyKeyRepository;
     private final ObjectMapper objectMapper;
 
     public JpaWorkflowEventStoreAdapter(
             JpaWorkflowInstanceRepository instanceRepository,
             JpaWorkflowEventRepository eventRepository,
+            JpaWorkflowSnapshotRepository snapshotRepository,
+            JpaIdempotencyKeyRepository idempotencyKeyRepository,
             ObjectMapper objectMapper
     ) {
         this.instanceRepository = instanceRepository;
         this.eventRepository = eventRepository;
+        this.snapshotRepository = snapshotRepository;
+        this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -118,6 +124,54 @@ public class JpaWorkflowEventStoreAdapter implements WorkflowEventStorePort {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public void saveSnapshot(WorkflowId workflowId, long sequenceNumber, Map<String, Object> state) {
+        try {
+            String json = objectMapper.writeValueAsString(state);
+            snapshotRepository.save(new WorkflowSnapshotEntity(
+                    workflowId.value(),
+                    sequenceNumber,
+                    json,
+                    Instant.now()
+            ));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save snapshot for " + workflowId + ": " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Map<String, Object>> getLatestSnapshot(WorkflowId workflowId) {
+        return snapshotRepository.findTopByWorkflowIdOrderByLastSequenceNumberDesc(workflowId.value())
+                .map(s -> parseJsonMap(s.getSnapshotState()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long getLatestSnapshotSequenceNumber(WorkflowId workflowId) {
+        return snapshotRepository.findTopByWorkflowIdOrderByLastSequenceNumberDesc(workflowId.value())
+                .map(WorkflowSnapshotEntity::getLastSequenceNumber)
+                .orElse(0L);
+    }
+
+    @Override
+    @Transactional
+    public boolean tryAcquireIdempotencyKey(String key, WorkflowId workflowId) {
+        if (idempotencyKeyRepository.findByIdempotencyKey(key).isPresent()) {
+            return false;
+        }
+        idempotencyKeyRepository.save(new IdempotencyKeyEntity(key, workflowId.value(), Instant.now()));
+        return true;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<WorkflowId> findWorkflowByIdempotencyKey(String key) {
+        return idempotencyKeyRepository.findByIdempotencyKey(key)
+                .map(e -> WorkflowId.of(e.getWorkflowId()));
+    }
+
     private WorkflowInstance mapToWorkflowInstance(WorkflowInstanceEntity entity) {
         Map<String, Object> inputMap = parseJsonMap(entity.getInputPayload());
         Map<String, Object> outputMap = parseJsonMap(entity.getOutputPayload());
@@ -175,6 +229,14 @@ public class JpaWorkflowEventStoreAdapter implements WorkflowEventStorePort {
                 data.put("compensationActivity", e.compensationActivity());
                 data.put("resultMessage", e.resultMessage());
             }
+            case NexusDomainEvent.StepSkippedEvent e -> {
+                data.put("stepId", e.stepId().value());
+                data.put("reason", e.reason());
+            }
+            case NexusDomainEvent.StepOverriddenEvent e -> {
+                data.put("stepId", e.stepId().value());
+                data.put("customOutput", e.customOutput());
+            }
             case NexusDomainEvent.SignalWaitingEvent e -> {
                 data.put("stepId", e.stepId().value());
                 data.put("signalName", e.signalName().value());
@@ -187,6 +249,21 @@ public class JpaWorkflowEventStoreAdapter implements WorkflowEventStorePort {
             case NexusDomainEvent.SleepScheduledEvent e -> {
                 data.put("stepId", e.stepId().value());
                 data.put("durationMillis", e.duration().toMillis());
+            }
+            case NexusDomainEvent.ChildWorkflowStartedEvent e -> {
+                data.put("stepId", e.stepId().value());
+                data.put("childWorkflowId", e.childWorkflowId().value());
+                data.put("childDefinitionId", e.childDefinitionId());
+            }
+            case NexusDomainEvent.ChildWorkflowCompletedEvent e -> {
+                data.put("stepId", e.stepId().value());
+                data.put("childWorkflowId", e.childWorkflowId().value());
+                data.put("childOutput", e.childOutput());
+            }
+            case NexusDomainEvent.ChildWorkflowFailedEvent e -> {
+                data.put("stepId", e.stepId().value());
+                data.put("childWorkflowId", e.childWorkflowId().value());
+                data.put("errorReason", e.errorReason());
             }
             case NexusDomainEvent.WorkflowCompletedEvent e -> {
                 data.put("finalOutput", e.finalOutput());
@@ -238,6 +315,16 @@ public class JpaWorkflowEventStoreAdapter implements WorkflowEventStorePort {
                     (String) data.get("compensationActivity"),
                     (String) data.get("resultMessage")
             );
+            case "STEP_SKIPPED" -> new NexusDomainEvent.StepSkippedEvent(
+                    wfId, seq, time,
+                    StepId.of((String) data.get("stepId")),
+                    (String) data.get("reason")
+            );
+            case "STEP_OVERRIDDEN" -> new NexusDomainEvent.StepOverriddenEvent(
+                    wfId, seq, time,
+                    StepId.of((String) data.get("stepId")),
+                    (Map<String, Object>) data.getOrDefault("customOutput", Collections.emptyMap())
+            );
             case "SIGNAL_WAITING" -> new NexusDomainEvent.SignalWaitingEvent(
                     wfId, seq, time,
                     StepId.of((String) data.get("stepId")),
@@ -253,6 +340,24 @@ public class JpaWorkflowEventStoreAdapter implements WorkflowEventStorePort {
                     wfId, seq, time,
                     StepId.of((String) data.get("stepId")),
                     Duration.ofMillis(((Number) data.getOrDefault("durationMillis", 0)).longValue())
+            );
+            case "CHILD_WORKFLOW_STARTED" -> new NexusDomainEvent.ChildWorkflowStartedEvent(
+                    wfId, seq, time,
+                    StepId.of((String) data.get("stepId")),
+                    WorkflowId.of((String) data.get("childWorkflowId")),
+                    (String) data.get("childDefinitionId")
+            );
+            case "CHILD_WORKFLOW_COMPLETED" -> new NexusDomainEvent.ChildWorkflowCompletedEvent(
+                    wfId, seq, time,
+                    StepId.of((String) data.get("stepId")),
+                    WorkflowId.of((String) data.get("childWorkflowId")),
+                    (Map<String, Object>) data.getOrDefault("childOutput", Collections.emptyMap())
+            );
+            case "CHILD_WORKFLOW_FAILED" -> new NexusDomainEvent.ChildWorkflowFailedEvent(
+                    wfId, seq, time,
+                    StepId.of((String) data.get("stepId")),
+                    WorkflowId.of((String) data.get("childWorkflowId")),
+                    (String) data.get("errorReason")
             );
             case "WORKFLOW_COMPLETED" -> new NexusDomainEvent.WorkflowCompletedEvent(
                     wfId, seq, time,

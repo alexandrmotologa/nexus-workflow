@@ -70,6 +70,20 @@ public final class Workflow {
             return this;
         }
 
+        public Builder choose(String stepId, com.engine.nexus.domain.model.StepPredicate condition, StepDefinition thenBranch, StepDefinition otherwiseBranch) {
+            steps.add(StepDefinition.conditional(StepId.of(stepId), condition, thenBranch, otherwiseBranch));
+            return this;
+        }
+
+        public Builder childWorkflow(String stepId, String childDefinitionId) {
+            return childWorkflow(stepId, childDefinitionId, parentState -> parentState);
+        }
+
+        public Builder childWorkflow(String stepId, String childDefinitionId, com.engine.nexus.domain.model.ChildInputMapper mapper) {
+            steps.add(StepDefinition.child(StepId.of(stepId), childDefinitionId, mapper));
+            return this;
+        }
+
         public Builder onFailure(String failureActivity) {
             this.failureHandlerActivity = failureActivity;
             return this;

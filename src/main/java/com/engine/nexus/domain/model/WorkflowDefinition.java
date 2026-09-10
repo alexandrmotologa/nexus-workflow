@@ -38,6 +38,14 @@ public record WorkflowDefinition(
                     }
                 }
             }
+            if (step.type() == StepType.CONDITIONAL) {
+                if (step.thenBranch() != null && !seen.add(step.thenBranch().stepId())) {
+                    throw new IllegalArgumentException("Duplicate stepId in then branch: " + step.thenBranch().stepId());
+                }
+                if (step.otherwiseBranch() != null && !seen.add(step.otherwiseBranch().stepId())) {
+                    throw new IllegalArgumentException("Duplicate stepId in otherwise branch: " + step.otherwiseBranch().stepId());
+                }
+            }
         }
     }
 
@@ -49,6 +57,14 @@ public record WorkflowDefinition(
             for (StepDefinition branch : step.parallelBranches()) {
                 if (branch.stepId().equals(stepId)) {
                     return Optional.of(branch);
+                }
+            }
+            if (step.type() == StepType.CONDITIONAL) {
+                if (step.thenBranch() != null && step.thenBranch().stepId().equals(stepId)) {
+                    return Optional.of(step.thenBranch());
+                }
+                if (step.otherwiseBranch() != null && step.otherwiseBranch().stepId().equals(stepId)) {
+                    return Optional.of(step.otherwiseBranch());
                 }
             }
         }

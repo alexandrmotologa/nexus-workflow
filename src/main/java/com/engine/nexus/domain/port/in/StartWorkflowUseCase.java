@@ -8,4 +8,5 @@ import java.util.Map;
 public interface StartWorkflowUseCase {
     WorkflowInstance startWorkflow(String definitionId, Map<String, Object> input);
     WorkflowInstance startWorkflow(WorkflowId customId, String definitionId, Map<String, Object> input);
+    WorkflowInstance startWorkflow(WorkflowId customId, String definitionId, Map<String, Object> input, String idempotencyKey);
 }

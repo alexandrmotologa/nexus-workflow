@@ -34,6 +34,7 @@ public class SampleWorkflowInitializer implements CommandLineRunner {
         registerActivities();
         registerUserOnboardingWorkflow();
         registerTripBookingSagaWorkflow();
+        registerConditionalAndChildWorkflows();
         log.info("NexusWorkflow sample definitions and activities registered successfully");
     }
 
@@ -102,6 +103,22 @@ public class SampleWorkflowInitializer implements CommandLineRunner {
         activityRegistry.registerCompensation("GlobalCleanupActivity", ctx -> {
             log.warn("GLOBAL COMPENSATION EXECUTED for workflow: {}", ctx.getWorkflowId());
         });
+
+        // Conditional & Tier Routing Activities
+        activityRegistry.registerActivity("VipUpgradeActivity", ctx -> {
+            log.info("Executing VipUpgradeActivity: applying VIP concierges and discount");
+            return Map.of("tier", "VIP", "discount", 0.25, "conciergeAssigned", true);
+        });
+
+        activityRegistry.registerActivity("StandardTierActivity", ctx -> {
+            log.info("Executing StandardTierActivity: standard configuration");
+            return Map.of("tier", "STANDARD", "discount", 0.0);
+        });
+
+        activityRegistry.registerActivity("NotifyAccountReadyActivity", ctx -> {
+            log.info("Executing NotifyAccountReadyActivity");
+            return Map.of("accountReadyNotified", true, "notifiedAt", System.currentTimeMillis());
+        });
     }
 
     private void registerUserOnboardingWorkflow() {
@@ -140,5 +157,37 @@ public class SampleWorkflowInitializer implements CommandLineRunner {
                 .build();
 
         workflowRegistry.register(saga);
+    }
+
+    private void registerConditionalAndChildWorkflows() {
+        StepDefinition vipBranch = StepDefinition.activity(
+                StepId.of("vip-upgrade"),
+                "VipUpgradeActivity",
+                RetryPolicy.none(),
+                null
+        );
+
+        StepDefinition standardBranch = StepDefinition.activity(
+                StepId.of("standard-tier"),
+                "StandardTierActivity",
+                RetryPolicy.none(),
+                null
+        );
+
+        WorkflowDefinition tierWorkflow = Workflow.define("customer-tier-routing")
+                .version(1)
+                .step("create-account", "CreateAccountActivity")
+                .choose("evaluate-tier", state -> Boolean.TRUE.equals(state.get("vip")), vipBranch, standardBranch)
+                .step("notify-ready", "NotifyAccountReadyActivity")
+                .build();
+        workflowRegistry.register(tierWorkflow);
+
+        WorkflowDefinition parentWorkflow = Workflow.define("parent-order-flow")
+                .version(1)
+                .step("create-account", "CreateAccountActivity")
+                .childWorkflow("provision-child", "customer-tier-routing", parentState -> Map.of("vip", true, "userId", parentState.getOrDefault("userId", "usr_child")))
+                .step("send-welcome", "SendWelcomeEmailActivity")
+                .build();
+        workflowRegistry.register(parentWorkflow);
     }
 }

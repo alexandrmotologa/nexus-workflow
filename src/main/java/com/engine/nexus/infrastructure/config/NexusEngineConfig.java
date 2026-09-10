@@ -44,7 +44,8 @@ public class NexusEngineConfig {
             WorkflowEventStorePort eventStore,
             DeterministicReplayEngine replayEngine,
             SagaCompensationCoordinator compensationCoordinator,
-            TimerPort timerPort
+            TimerPort timerPort,
+            com.engine.nexus.infrastructure.adapter.out.notification.WebhookNotificationService webhookNotificationService
     ) {
         WorkflowEngineImpl engine = new WorkflowEngineImpl(
                 workflowRegistry,
@@ -52,7 +53,8 @@ public class NexusEngineConfig {
                 eventStore,
                 replayEngine,
                 compensationCoordinator,
-                timerPort
+                timerPort,
+                webhookNotificationService
         );
 
         if (timerPort instanceof VirtualThreadTimerAdapter vtta) {

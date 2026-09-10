@@ -5,6 +5,7 @@ import com.engine.nexus.domain.model.WorkflowId;
 import com.engine.nexus.domain.model.WorkflowInstance;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface WorkflowEventStorePort {
@@ -14,4 +15,11 @@ public interface WorkflowEventStorePort {
     void saveInstance(WorkflowInstance instance);
     Optional<WorkflowInstance> findInstance(WorkflowId workflowId);
     List<WorkflowInstance> findAllInstances(int limit, int offset);
+
+    void saveSnapshot(WorkflowId workflowId, long sequenceNumber, Map<String, Object> state);
+    Optional<Map<String, Object>> getLatestSnapshot(WorkflowId workflowId);
+    long getLatestSnapshotSequenceNumber(WorkflowId workflowId);
+
+    boolean tryAcquireIdempotencyKey(String key, WorkflowId workflowId);
+    Optional<WorkflowId> findWorkflowByIdempotencyKey(String key);
 }

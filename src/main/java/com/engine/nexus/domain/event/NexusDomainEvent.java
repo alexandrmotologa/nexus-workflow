@@ -14,9 +14,14 @@ public sealed interface NexusDomainEvent permits
         NexusDomainEvent.StepCompletedEvent,
         NexusDomainEvent.StepFailedEvent,
         NexusDomainEvent.StepCompensatedEvent,
+        NexusDomainEvent.StepSkippedEvent,
+        NexusDomainEvent.StepOverriddenEvent,
         NexusDomainEvent.SignalWaitingEvent,
         NexusDomainEvent.SignalReceivedEvent,
         NexusDomainEvent.SleepScheduledEvent,
+        NexusDomainEvent.ChildWorkflowStartedEvent,
+        NexusDomainEvent.ChildWorkflowCompletedEvent,
+        NexusDomainEvent.ChildWorkflowFailedEvent,
         NexusDomainEvent.WorkflowCompletedEvent,
         NexusDomainEvent.WorkflowFailedEvent,
         NexusDomainEvent.WorkflowCompensatedEvent {
@@ -95,6 +100,32 @@ public sealed interface NexusDomainEvent permits
         }
     }
 
+    record StepSkippedEvent(
+            WorkflowId workflowId,
+            long sequenceNumber,
+            Instant timestamp,
+            StepId stepId,
+            String reason
+    ) implements NexusDomainEvent {
+        @Override
+        public String eventType() {
+            return "STEP_SKIPPED";
+        }
+    }
+
+    record StepOverriddenEvent(
+            WorkflowId workflowId,
+            long sequenceNumber,
+            Instant timestamp,
+            StepId stepId,
+            Map<String, Object> customOutput
+    ) implements NexusDomainEvent {
+        @Override
+        public String eventType() {
+            return "STEP_OVERRIDDEN";
+        }
+    }
+
     record SignalWaitingEvent(
             WorkflowId workflowId,
             long sequenceNumber,
@@ -132,6 +163,48 @@ public sealed interface NexusDomainEvent permits
         @Override
         public String eventType() {
             return "SLEEP_SCHEDULED";
+        }
+    }
+
+    record ChildWorkflowStartedEvent(
+            WorkflowId workflowId,
+            long sequenceNumber,
+            Instant timestamp,
+            StepId stepId,
+            WorkflowId childWorkflowId,
+            String childDefinitionId
+    ) implements NexusDomainEvent {
+        @Override
+        public String eventType() {
+            return "CHILD_WORKFLOW_STARTED";
+        }
+    }
+
+    record ChildWorkflowCompletedEvent(
+            WorkflowId workflowId,
+            long sequenceNumber,
+            Instant timestamp,
+            StepId stepId,
+            WorkflowId childWorkflowId,
+            Map<String, Object> childOutput
+    ) implements NexusDomainEvent {
+        @Override
+        public String eventType() {
+            return "CHILD_WORKFLOW_COMPLETED";
+        }
+    }
+
+    record ChildWorkflowFailedEvent(
+            WorkflowId workflowId,
+            long sequenceNumber,
+            Instant timestamp,
+            StepId stepId,
+            WorkflowId childWorkflowId,
+            String errorReason
+    ) implements NexusDomainEvent {
+        @Override
+        public String eventType() {
+            return "CHILD_WORKFLOW_FAILED";
         }
     }
 

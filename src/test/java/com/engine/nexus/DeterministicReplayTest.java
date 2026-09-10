@@ -69,6 +69,36 @@ class DeterministicReplayTest {
         public synchronized List<WorkflowInstance> findAllInstances(int limit, int offset) {
             return new ArrayList<>(instanceStore.values());
         }
+
+        private final Map<WorkflowId, Map<String, Object>> snapshots = new ConcurrentHashMap<>();
+        private final Map<WorkflowId, Long> snapshotSeqs = new ConcurrentHashMap<>();
+        private final Map<String, WorkflowId> idempotencyKeys = new ConcurrentHashMap<>();
+
+        @Override
+        public synchronized void saveSnapshot(WorkflowId workflowId, long sequenceNumber, Map<String, Object> state) {
+            snapshots.put(workflowId, state);
+            snapshotSeqs.put(workflowId, sequenceNumber);
+        }
+
+        @Override
+        public synchronized Optional<Map<String, Object>> getLatestSnapshot(WorkflowId workflowId) {
+            return Optional.ofNullable(snapshots.get(workflowId));
+        }
+
+        @Override
+        public synchronized long getLatestSnapshotSequenceNumber(WorkflowId workflowId) {
+            return snapshotSeqs.getOrDefault(workflowId, 0L);
+        }
+
+        @Override
+        public synchronized boolean tryAcquireIdempotencyKey(String key, WorkflowId workflowId) {
+            return idempotencyKeys.putIfAbsent(key, workflowId) == null;
+        }
+
+        @Override
+        public synchronized Optional<WorkflowId> findWorkflowByIdempotencyKey(String key) {
+            return Optional.ofNullable(idempotencyKeys.get(key));
+        }
     }
 
     static class NoOpTimerPort implements TimerPort {

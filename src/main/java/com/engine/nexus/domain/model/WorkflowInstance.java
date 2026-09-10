@@ -133,6 +133,14 @@ public class WorkflowInstance {
         this.completedAt = now;
     }
 
+    public void resumeAfterIntervention(StepId stepId) {
+        this.status = WorkflowStatus.RUNNING;
+        this.currentStepId = stepId;
+        this.errorMessage = null;
+        this.updatedAt = Instant.now();
+        this.completedAt = null;
+    }
+
     public void cancel(String reason) {
         this.status = WorkflowStatus.CANCELLED;
         this.errorMessage = "Cancelled: " + reason;

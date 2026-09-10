@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexusWorkflow — Real-Time DAG Visualizer</title>
+    <title>NexusWorkflow — Real-Time DAG Visualizer & Operations</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -85,7 +85,7 @@
 
         .header-actions {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             align-items: center;
         }
 
@@ -133,9 +133,30 @@
             box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
         }
 
+        .btn-retry {
+            background-color: var(--accent-blue);
+            color: #04101e;
+            font-weight: 600;
+        }
+        .btn-retry:hover { background-color: #7dd3fc; }
+
+        .btn-skip {
+            background-color: var(--accent-yellow);
+            color: #1a1002;
+            font-weight: 600;
+        }
+        .btn-skip:hover { background-color: #fbbf24; }
+
+        .btn-override {
+            background-color: var(--accent-purple);
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .btn-override:hover { background-color: #c084fc; }
+
         .layout-container {
             display: grid;
-            grid-template-columns: 320px 1fr 360px;
+            grid-template-columns: 330px 1fr 390px;
             flex: 1;
             height: calc(100vh - 65px);
             overflow: hidden;
@@ -151,7 +172,7 @@
         }
 
         .section-header {
-            padding: 1rem;
+            padding: 0.875rem 1rem;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
@@ -159,11 +180,32 @@
         }
 
         .section-title {
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-secondary);
+        }
+
+        .search-box-container {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(10, 14, 23, 0.5);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.45rem 0.7rem;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-blue);
         }
 
         .instance-list {
@@ -199,6 +241,9 @@
             font-size: 0.8rem;
             color: var(--accent-blue);
             margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .instance-def {
@@ -229,6 +274,7 @@
         .status-COMPLETED { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
         .status-FAILED { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
         .status-PENDING { background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); }
+        .status-CANCELLED { background: rgba(100, 116, 139, 0.2); color: var(--text-muted); }
 
         @keyframes pulse {
             0% { opacity: 0.6; }
@@ -279,6 +325,15 @@
             overflow: visible;
         }
 
+        .dag-node {
+            cursor: pointer;
+        }
+
+        .dag-node:hover .node-rect {
+            filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.7));
+            stroke-width: 2.5;
+        }
+
         .node-rect {
             rx: 10;
             ry: 10;
@@ -290,7 +345,8 @@
         .node-rect.running { fill: #132742; stroke: var(--accent-blue); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.5)); }
         .node-rect.waiting { fill: #2b2311; stroke: var(--accent-yellow); filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5)); }
         .node-rect.completed { fill: #0f2d24; stroke: var(--accent-green); }
-        .node-rect.failed { fill: #331316; stroke: var(--accent-red); }
+        .node-rect.failed { fill: #331316; stroke: var(--accent-red); filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.5)); }
+        .node-rect.skipped { fill: #1f2430; stroke: #64748b; stroke-dasharray: 4 4; }
 
         .node-label {
             font-family: 'Inter', sans-serif;
@@ -298,6 +354,7 @@
             font-weight: 600;
             fill: var(--text-primary);
             text-anchor: middle;
+            pointer-events: none;
         }
 
         .node-sub {
@@ -305,6 +362,7 @@
             font-size: 10px;
             fill: var(--text-muted);
             text-anchor: middle;
+            pointer-events: none;
         }
 
         .edge-path {
@@ -327,7 +385,7 @@
             stroke-width: 2.5;
         }
 
-        /* Right Panel: State & History Audit */
+        /* Right Panel: State, Gantt & Audit History */
         .detail-panel {
             background-color: var(--bg-surface);
             border-left: 1px solid var(--border-color);
@@ -339,18 +397,25 @@
         .panel-tabs {
             display: flex;
             border-bottom: 1px solid var(--border-color);
+            background: rgba(10, 14, 23, 0.3);
         }
 
         .tab-btn {
             flex: 1;
-            padding: 0.75rem;
+            padding: 0.75rem 0.5rem;
             background: none;
             border: none;
             color: var(--text-secondary);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
             border-bottom: 2px solid transparent;
+            text-align: center;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
         }
 
         .tab-btn.active {
@@ -375,9 +440,74 @@
             color: #38bdf8;
             white-space: pre-wrap;
             word-break: break-all;
-            max-height: 250px;
+            max-height: 220px;
             overflow-y: auto;
         }
+
+        /* Gantt Waterfall Styles */
+        .gantt-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .gantt-row {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            transition: all 0.15s ease;
+        }
+
+        .gantt-row:hover {
+            background-color: var(--bg-card-hover);
+            border-color: #3b4968;
+        }
+
+        .gantt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .gantt-step-name {
+            font-weight: 600;
+            font-size: 0.78rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+        }
+
+        .gantt-latency {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-blue);
+            background: rgba(56, 189, 248, 0.12);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+        }
+
+        .gantt-track {
+            height: 6px;
+            background: #0a0e17;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gantt-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .gantt-fill.completed { background: var(--accent-green); }
+        .gantt-fill.running { background: var(--accent-blue); animation: pulse 1.5s infinite; }
+        .gantt-fill.waiting { background: var(--accent-yellow); }
+        .gantt-fill.failed { background: var(--accent-red); }
+        .gantt-fill.skipped { background: var(--text-muted); }
 
         .event-timeline {
             display: flex;
@@ -396,6 +526,8 @@
         .event-item.STEP_COMPLETED { border-left-color: var(--accent-green); }
         .event-item.SIGNAL_WAITING { border-left-color: var(--accent-yellow); }
         .event-item.STEP_FAILED { border-left-color: var(--accent-red); }
+        .event-item.STEP_SKIPPED { border-left-color: var(--text-muted); }
+        .event-item.STEP_OVERRIDDEN { border-left-color: var(--accent-purple); }
         .event-item.WORKFLOW_COMPLETED { border-left-color: var(--accent-green); }
 
         .event-name {
@@ -417,8 +549,8 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(4, 8, 16, 0.8);
-            backdrop-filter: blur(4px);
+            background: rgba(4, 8, 16, 0.85);
+            backdrop-filter: blur(5px);
             display: none;
             align-items: center;
             justify-content: center;
@@ -432,7 +564,7 @@
             width: 480px;
             max-width: 90vw;
             padding: 1.5rem;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
         }
 
         .modal-header {
@@ -440,6 +572,25 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
+        }
+
+        .intervention-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.85rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .intervention-card-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .form-group {
@@ -456,26 +607,44 @@
 
         .form-input, .form-select, .form-textarea {
             width: 100%;
-            padding: 0.6rem 0.8rem;
+            padding: 0.55rem 0.75rem;
             background-color: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             color: var(--text-primary);
-            font-size: 0.875rem;
+            font-size: 0.85rem;
             font-family: inherit;
         }
 
         .form-textarea {
             font-family: 'JetBrains Mono', monospace;
             resize: vertical;
-            height: 100px;
+            height: 90px;
         }
 
         .modal-footer {
             display: flex;
             justify-content: flex-end;
             gap: 0.75rem;
-            margin-top: 1.5rem;
+            margin-top: 1.25rem;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent-blue);
+            color: var(--text-primary);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            font-size: 0.85rem;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
         }
     </style>
 </head>
@@ -494,25 +663,29 @@
     </header>
 
     <div class="layout-container">
-        <!-- Sidebar: Executions List -->
+        <!-- Sidebar: Executions List with Search -->
         <aside class="sidebar">
             <div class="section-header">
                 <span class="section-title">Executions</span>
                 <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="loadInstances()">Refresh</button>
+            </div>
+            <div class="search-box-container">
+                <input id="filterInput" class="search-input" placeholder="Search by ID, Def, or Status..." oninput="filterInstances()">
             </div>
             <div class="instance-list" id="instanceList">
                 <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">Loading instances...</div>
             </div>
         </aside>
 
-        <!-- Main Area: SVG DAG Visualizer -->
+        <!-- Main Area: SVG DAG Visualizer & Interventions -->
         <main class="visualizer-area">
             <div class="visualizer-toolbar">
                 <div class="active-wf-title">
                     <span id="activeDefTitle" style="font-weight: 600;">No Workflow Selected</span>
                     <span id="activeStatusBadge" class="status-badge status-PENDING">IDLE</span>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="exportMermaid()" title="Export DAG structure to Mermaid syntax">📊 Export Mermaid</button>
                     <button id="signalBtn" class="btn btn-signal" style="display: none;" onclick="openSignalModal()">⚡ Inject Signal</button>
                 </div>
             </div>
@@ -523,20 +696,26 @@
             </div>
         </main>
 
-        <!-- Right Panel: State & Audit History -->
+        <!-- Right Panel: Live State, Waterfall Timeline, Event Audit -->
         <aside class="detail-panel">
             <div class="panel-tabs">
-                <button class="tab-btn active" onclick="switchTab('state')">Live State</button>
-                <button class="tab-btn" onclick="switchTab('history')">Event Audit</button>
+                <button class="tab-btn active" onclick="switchTab('state')">State</button>
+                <button class="tab-btn" onclick="switchTab('gantt')">Waterfall (Gantt)</button>
+                <button class="tab-btn" onclick="switchTab('history')">Audit</button>
             </div>
             <div id="stateTab" class="tab-content">
                 <div style="margin-bottom: 1rem;">
-                    <span class="section-title" style="display: block; margin-bottom: 0.5rem;">Current Step Output</span>
+                    <span class="section-title" style="display: block; margin-bottom: 0.5rem;">Current Output</span>
                     <div id="outputBox" class="json-box">{}</div>
                 </div>
                 <div>
                     <span class="section-title" style="display: block; margin-bottom: 0.5rem;">Initial Input</span>
                     <div id="inputBox" class="json-box">{}</div>
+                </div>
+            </div>
+            <div id="ganttTab" class="tab-content" style="display: none;">
+                <div class="gantt-container" id="ganttTimeline">
+                    <div style="color: var(--text-muted); font-size: 0.8rem;">Select a workflow to view step latencies</div>
                 </div>
             </div>
             <div id="historyTab" class="tab-content" style="display: none;">
@@ -569,7 +748,8 @@
                 <label class="form-label">Input JSON</label>
                 <textarea id="inputPayloadArea" class="form-textarea">{
   "userId": "usr_alexander",
-  "destination": "Zurich"
+  "destination": "Zurich",
+  "vip": true
 }</textarea>
             </div>
             <div class="modal-footer">
@@ -605,10 +785,56 @@
         </div>
     </div>
 
+    <!-- Step Intervention Modal (Operator Tools) -->
+    <div id="interventionModal" class="modal-overlay">
+        <div class="modal" style="width: 500px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="interventionTitle" style="font-size: 1.1rem;">Operator Step Intervention</h3>
+                    <div id="interventionSubtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; font-family: 'JetBrains Mono', monospace;">stepId • status</div>
+                </div>
+                <button class="btn btn-secondary" onclick="closeInterventionModal()">✕</button>
+            </div>
+
+            <!-- Action 1: Retry -->
+            <div class="intervention-card">
+                <span class="intervention-card-title">1. Retry Step</span>
+                <p style="font-size: 0.75rem; color: var(--text-secondary);">Re-executes this step directly from the engine.</p>
+                <button class="btn btn-retry" onclick="submitStepRetry()">↻ Retry Step Execution</button>
+            </div>
+
+            <!-- Action 2: Skip -->
+            <div class="intervention-card">
+                <span class="intervention-card-title">2. Skip Step</span>
+                <p style="font-size: 0.75rem; color: var(--text-secondary);">Bypasses this step and continues DAG progression.</p>
+                <input id="skipReasonInput" class="form-input" placeholder="Reason for skipping" value="Manual operator intervention">
+                <button class="btn btn-skip" onclick="submitStepSkip()">↷ Skip Step & Continue</button>
+            </div>
+
+            <!-- Action 3: Override -->
+            <div class="intervention-card">
+                <span class="intervention-card-title">3. Override Step Output</span>
+                <p style="font-size: 0.75rem; color: var(--text-secondary);">Injects manual output payload to fulfill downstream step requirements.</p>
+                <textarea id="overrideOutputArea" class="form-textarea" style="height: 65px;">{
+  "manualIntervention": true,
+  "status": "APPROVED"
+}</textarea>
+                <button class="btn btn-override" onclick="submitStepOverride()">✎ Override Output</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast message -->
+    <div id="toast" class="toast">Action completed</div>
+
     <script>
         let currentWorkflowId = null;
+        let activeInstance = null;
+        let activeHistory = [];
         let sseSource = null;
         let definitionsMap = {};
+        let allInstances = [];
+        let selectedInterventionStepId = null;
 
         async function init() {
             await loadDefinitions();
@@ -619,7 +845,15 @@
             try {
                 const res = await fetch('/api/v1/workflows/definitions');
                 const defs = await res.json();
-                defs.forEach(d => definitionsMap[d.id] = d);
+                const defSelect = document.getElementById('defSelect');
+                defSelect.innerHTML = '';
+                defs.forEach(d => {
+                    definitionsMap[d.id] = d;
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.innerText = `${d.id} (${d.steps ? d.steps.length : 0} steps)`;
+                    defSelect.appendChild(opt);
+                });
             } catch (e) {
                 console.error("Failed to load definitions", e);
             }
@@ -627,36 +861,54 @@
 
         async function loadInstances() {
             try {
-                const res = await fetch('/api/v1/workflows?limit=25');
-                const instances = await res.json();
-                const container = document.getElementById('instanceList');
-                if (instances.length === 0) {
-                    container.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.8rem;">No workflow runs found. Click "+ New Execution" to start one.</div>';
-                    return;
-                }
+                const res = await fetch('/api/v1/workflows?limit=50');
+                allInstances = await res.json();
+                renderInstanceCards(allInstances);
 
-                container.innerHTML = instances.map(i => `
-                    <div class="instance-card ${i.id === currentWorkflowId ? 'active' : ''}" onclick="selectWorkflow('${i.id}')">
-                        <div class="instance-id">${i.id}</div>
-                        <div class="instance-def">${i.definitionId}</div>
-                        <div class="instance-meta">
-                            <span class="status-badge status-${i.status}">${i.status}</span>
-                            <span>${new Date(i.createdAt).toLocaleTimeString()}</span>
-                        </div>
-                    </div>
-                `).join('');
-
-                if (!currentWorkflowId && instances.length > 0) {
-                    selectWorkflow(instances[0].id);
+                if (!currentWorkflowId && allInstances.length > 0) {
+                    selectWorkflow(allInstances[0].id);
                 }
             } catch (e) {
                 console.error("Failed to load instances", e);
             }
         }
 
+        function filterInstances() {
+            const term = document.getElementById('filterInput').value.trim().toLowerCase();
+            if (!term) {
+                renderInstanceCards(allInstances);
+                return;
+            }
+            const filtered = allInstances.filter(i => 
+                i.id.toLowerCase().includes(term) ||
+                i.definitionId.toLowerCase().includes(term) ||
+                i.status.toLowerCase().includes(term)
+            );
+            renderInstanceCards(filtered);
+        }
+
+        function renderInstanceCards(instances) {
+            const container = document.getElementById('instanceList');
+            if (!instances || instances.length === 0) {
+                container.innerHTML = '<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.8rem;">No workflow runs found.</div>';
+                return;
+            }
+
+            container.innerHTML = instances.map(i => `
+                <div class="instance-card ${i.id === currentWorkflowId ? 'active' : ''}" onclick="selectWorkflow('${i.id}')">
+                    <div class="instance-id">${i.id}</div>
+                    <div class="instance-def">${i.definitionId}</div>
+                    <div class="instance-meta">
+                        <span class="status-badge status-${i.status}">${i.status}</span>
+                        <span>${new Date(i.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         async function selectWorkflow(workflowId) {
             currentWorkflowId = workflowId;
-            loadInstances();
+            filterInstances();
 
             if (sseSource) {
                 sseSource.close();
@@ -667,18 +919,19 @@
                 fetch(`/api/v1/workflows/${workflowId}/status`),
                 fetch(`/api/v1/workflows/${workflowId}/history`)
             ]);
-            const instance = await statusRes.json();
-            const history = await histRes.json();
+            activeInstance = await statusRes.json();
+            activeHistory = await histRes.json();
 
-            updateView(instance, history);
+            updateView(activeInstance, activeHistory);
 
             // Connect live SSE
             sseSource = new EventSource(`/api/v1/workflows/${workflowId}/live`);
             sseSource.addEventListener('workflow-update', async (e) => {
                 const data = JSON.parse(e.data);
                 const updatedHistRes = await fetch(`/api/v1/workflows/${workflowId}/history`);
-                const updatedHist = await updatedHistRes.json();
-                updateView(data.instance, updatedHist);
+                activeHistory = await updatedHistRes.json();
+                activeInstance = data.instance;
+                updateView(activeInstance, activeHistory);
             });
         }
 
@@ -699,7 +952,7 @@
                 signalBtn.style.display = 'none';
             }
 
-            // Render Events
+            // Render Events Audit
             const timeline = document.getElementById('eventTimeline');
             timeline.innerHTML = history.map(ev => `
                 <div class="event-item ${ev.eventType}">
@@ -708,14 +961,18 @@
                         <span class="event-time">${new Date(ev.timestamp).toLocaleTimeString()}</span>
                     </div>
                     <div style="color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; font-size:0.7rem;">
-                        ${ev.details.stepId ? 'Step: ' + ev.details.stepId.value : ''}
-                        ${ev.details.signalName ? 'Signal: ' + ev.details.signalName.value : ''}
+                        ${ev.details && ev.details.stepId ? 'Step: ' + ev.details.stepId.value : ''}
+                        ${ev.details && ev.details.signalName ? 'Signal: ' + ev.details.signalName.value : ''}
+                        ${ev.details && ev.details.reason ? 'Reason: ' + ev.details.reason : ''}
                     </div>
                 </div>
             `).reverse().join('');
 
             // Render SVG DAG
             renderDag(instance, history);
+
+            // Render Gantt Waterfall
+            renderGantt(instance, history);
         }
 
         function renderDag(instance, history) {
@@ -736,28 +993,39 @@
 
             let elements = '';
             const completedStepIds = new Set();
+            const failedStepIds = new Set();
+            const skippedStepIds = new Set();
+
             history.forEach(ev => {
-                if (ev.eventType === 'STEP_COMPLETED' && ev.details.stepId) {
-                    completedStepIds.add(ev.details.stepId.value);
+                if (ev.details && ev.details.stepId) {
+                    const sid = ev.details.stepId.value;
+                    if (ev.eventType === 'STEP_COMPLETED' || ev.eventType === 'STEP_OVERRIDDEN') completedStepIds.add(sid);
+                    if (ev.eventType === 'STEP_FAILED') failedStepIds.add(sid);
+                    if (ev.eventType === 'STEP_SKIPPED') skippedStepIds.add(sid);
                 }
             });
 
             for (let i = 0; i < steps.length; i++) {
                 const s = steps[i];
-                const isCompleted = completedStepIds.has(s.stepId.value);
-                const isCurrent = instance.currentStepId === s.stepId.value;
+                const sid = s.stepId.value;
+                const isCompleted = completedStepIds.has(sid);
+                const isSkipped = skippedStepIds.has(sid);
+                const isCurrent = instance.currentStepId === sid;
                 const isWaiting = isCurrent && instance.status === 'WAITING_SIGNAL';
+                const isFailed = failedStepIds.has(sid) && !isCompleted && !isSkipped;
 
                 let statusClass = 'pending';
                 if (isCompleted) statusClass = 'completed';
+                else if (isSkipped) statusClass = 'skipped';
+                else if (isFailed) statusClass = 'failed';
                 else if (isWaiting) statusClass = 'waiting';
                 else if (isCurrent) statusClass = 'running';
 
-                // Render node rect
+                // Render node group with click event for operator interventions
                 elements += `
-                    <g transform="translate(${currentX}, ${centerY - nodeHeight/2})">
+                    <g class="dag-node" transform="translate(${currentX}, ${centerY - nodeHeight/2})" onclick="openInterventionModal('${sid}', '${statusClass}')">
                         <rect class="node-rect ${statusClass}" width="${nodeWidth}" height="${nodeHeight}" />
-                        <text class="node-label" x="${nodeWidth/2}" y="${nodeHeight/2 - 4}">${s.stepId.value}</text>
+                        <text class="node-label" x="${nodeWidth/2}" y="${nodeHeight/2 - 4}">${sid}</text>
                         <text class="node-sub" x="${nodeWidth/2}" y="${nodeHeight/2 + 14}">${s.type}</text>
                     </g>
                 `;
@@ -780,16 +1048,178 @@
             svg.innerHTML = elements;
         }
 
+        function renderGantt(instance, history) {
+            const ganttContainer = document.getElementById('ganttTimeline');
+            if (!history || history.length === 0) {
+                ganttContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem;">No execution timing recorded</div>';
+                return;
+            }
+
+            const stepTimes = {};
+            const stepStatuses = {};
+
+            history.forEach(ev => {
+                if (ev.details && ev.details.stepId) {
+                    const sid = ev.details.stepId.value;
+                    const ts = new Date(ev.timestamp).getTime();
+                    if (ev.eventType === 'STEP_STARTED') {
+                        if (!stepTimes[sid]) stepTimes[sid] = { start: ts };
+                    } else if (['STEP_COMPLETED', 'STEP_FAILED', 'STEP_SKIPPED', 'STEP_OVERRIDDEN'].includes(ev.eventType)) {
+                        if (!stepTimes[sid]) stepTimes[sid] = { start: ts };
+                        stepTimes[sid].end = ts;
+                        stepStatuses[sid] = ev.eventType.replace('STEP_', '').toLowerCase();
+                    }
+                }
+            });
+
+            const entries = Object.keys(stepTimes).map(sid => {
+                const start = stepTimes[sid].start;
+                const end = stepTimes[sid].end || Date.now();
+                const duration = Math.max(1, end - start);
+                return {
+                    stepId: sid,
+                    start,
+                    end,
+                    duration,
+                    status: stepStatuses[sid] || (instance.currentStepId === sid ? 'running' : 'pending')
+                };
+            });
+
+            if (entries.length === 0) {
+                ganttContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem;">No step latency records available</div>';
+                return;
+            }
+
+            const maxDuration = Math.max(...entries.map(e => e.duration), 10);
+
+            ganttContainer.innerHTML = entries.map(e => {
+                const pct = Math.min(100, Math.max(10, (e.duration / maxDuration) * 100));
+                return `
+                    <div class="gantt-row" onclick="openInterventionModal('${e.stepId}', '${e.status}')" style="cursor: pointer;" title="Click for operator intervention">
+                        <div class="gantt-header">
+                            <span class="gantt-step-name">${e.stepId}</span>
+                            <span class="gantt-latency">${e.duration}ms</span>
+                        </div>
+                        <div class="gantt-track">
+                            <div class="gantt-fill ${e.status}" style="width: ${pct}%;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
             if (tab === 'state') {
                 document.querySelectorAll('.tab-btn')[0].classList.add('active');
                 document.getElementById('stateTab').style.display = 'block';
-            } else {
+            } else if (tab === 'gantt') {
                 document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('ganttTab').style.display = 'block';
+            } else {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
                 document.getElementById('historyTab').style.display = 'block';
             }
+        }
+
+        function exportMermaid() {
+            if (!activeInstance) {
+                showToast("Select a workflow first");
+                return;
+            }
+            const def = definitionsMap[activeInstance.definitionId];
+            if (!def || !def.steps) {
+                showToast("Workflow definition not available");
+                return;
+            }
+
+            let m = 'graph LR\n';
+            def.steps.forEach((s, idx) => {
+                m += `    ${s.stepId.value}["${s.stepId.value}<br/><i>${s.type}</i>"]\n`;
+                if (idx < def.steps.length - 1) {
+                    m += `    ${s.stepId.value} --> ${def.steps[idx + 1].stepId.value}\n`;
+                }
+            });
+
+            navigator.clipboard.writeText(m).then(() => {
+                showToast("Mermaid diagram copied to clipboard!");
+            }).catch(() => {
+                showToast("Failed to copy to clipboard");
+            });
+        }
+
+        function openInterventionModal(stepId, status) {
+            selectedInterventionStepId = stepId;
+            document.getElementById('interventionTitle').innerText = `Step: ${stepId}`;
+            document.getElementById('interventionSubtitle').innerText = `Status: ${status.toUpperCase()} • Workflow: ${currentWorkflowId}`;
+            document.getElementById('interventionModal').style.display = 'flex';
+        }
+
+        function closeInterventionModal() {
+            document.getElementById('interventionModal').style.display = 'none';
+        }
+
+        async function submitStepRetry() {
+            if (!currentWorkflowId || !selectedInterventionStepId) return;
+            const res = await fetch(`/api/v1/workflows/${currentWorkflowId}/steps/${selectedInterventionStepId}/retry`, {
+                method: 'POST'
+            });
+            if (res.ok) {
+                showToast(`Retry initiated for step ${selectedInterventionStepId}`);
+                closeInterventionModal();
+                await selectWorkflow(currentWorkflowId);
+            } else {
+                showToast("Failed to trigger step retry");
+            }
+        }
+
+        async function submitStepSkip() {
+            if (!currentWorkflowId || !selectedInterventionStepId) return;
+            const reason = encodeURIComponent(document.getElementById('skipReasonInput').value.trim() || "Operator skipped");
+            const res = await fetch(`/api/v1/workflows/${currentWorkflowId}/steps/${selectedInterventionStepId}/skip?reason=${reason}`, {
+                method: 'POST'
+            });
+            if (res.ok) {
+                showToast(`Step ${selectedInterventionStepId} skipped`);
+                closeInterventionModal();
+                await selectWorkflow(currentWorkflowId);
+            } else {
+                showToast("Failed to skip step");
+            }
+        }
+
+        async function submitStepOverride() {
+            if (!currentWorkflowId || !selectedInterventionStepId) return;
+            let payload = {};
+            try {
+                payload = JSON.parse(document.getElementById('overrideOutputArea').value);
+            } catch (e) {
+                alert("Invalid JSON format");
+                return;
+            }
+
+            const res = await fetch(`/api/v1/workflows/${currentWorkflowId}/steps/${selectedInterventionStepId}/override`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast(`Output overridden for step ${selectedInterventionStepId}`);
+                closeInterventionModal();
+                await selectWorkflow(currentWorkflowId);
+            } else {
+                showToast("Failed to override step output");
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
         }
 
         function openStartModal() { document.getElementById('startModal').style.display = 'flex'; }
@@ -820,6 +1250,7 @@
                 closeStartModal();
                 await loadInstances();
                 selectWorkflow(created.id);
+                showToast(`Workflow ${created.id} started`);
             } else {
                 alert("Failed to start workflow");
             }
@@ -843,6 +1274,7 @@
 
             if (res.ok) {
                 closeSignalModal();
+                showToast(`Signal ${signalName} delivered`);
             } else {
                 alert("Failed to deliver signal");
             }

@@ -5,5 +5,7 @@ public enum StepType {
     ASYNC_ACTIVITY,
     SLEEP,
     SIGNAL,
-    PARALLEL
+    PARALLEL,
+    CONDITIONAL,
+    CHILD_WORKFLOW
 }

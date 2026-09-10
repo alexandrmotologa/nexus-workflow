@@ -15,7 +15,12 @@ public record StepDefinition(
         SignalName expectedSignal,
         String compensationActivityName,
         List<StepDefinition> parallelBranches,
-        int maxConcurrency
+        int maxConcurrency,
+        StepPredicate condition,
+        StepDefinition thenBranch,
+        StepDefinition otherwiseBranch,
+        String childWorkflowDefinitionId,
+        ChildInputMapper childInputMapper
 ) {
     public StepDefinition {
         Objects.requireNonNull(stepId, "stepId must not be null");
@@ -33,7 +38,12 @@ public record StepDefinition(
                 null,
                 compensationActivityName,
                 Collections.emptyList(),
-                1
+                1,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -47,7 +57,12 @@ public record StepDefinition(
                 signalName,
                 null,
                 Collections.emptyList(),
-                1
+                1,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -61,7 +76,12 @@ public record StepDefinition(
                 null,
                 null,
                 Collections.emptyList(),
-                1
+                1,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -75,7 +95,50 @@ public record StepDefinition(
                 null,
                 null,
                 branches,
-                Math.max(1, maxConcurrency)
+                Math.max(1, maxConcurrency),
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    public static StepDefinition conditional(StepId stepId, StepPredicate condition, StepDefinition thenBranch, StepDefinition otherwiseBranch) {
+        return new StepDefinition(
+                stepId,
+                StepType.CONDITIONAL,
+                null,
+                RetryPolicy.none(),
+                Duration.ofMinutes(10),
+                null,
+                null,
+                Collections.emptyList(),
+                1,
+                condition,
+                thenBranch,
+                otherwiseBranch,
+                null,
+                null
+        );
+    }
+
+    public static StepDefinition child(StepId stepId, String childWorkflowDefinitionId, ChildInputMapper childInputMapper) {
+        return new StepDefinition(
+                stepId,
+                StepType.CHILD_WORKFLOW,
+                null,
+                RetryPolicy.none(),
+                Duration.ofHours(24),
+                null,
+                null,
+                Collections.emptyList(),
+                1,
+                null,
+                null,
+                null,
+                childWorkflowDefinitionId,
+                childInputMapper
         );
     }
 

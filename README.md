@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  Code-first distributed workflow and DAG engine in Java 21 with event-sourced durable execution, virtual threads, backward saga compensation, and an interactive SVG dashboard.
+  Code-first distributed workflow and DAG engine in Java 21 with event-sourced durable execution, virtual threads, backward saga compensation, snapshots, idempotency keys, and an interactive SVG dashboard.
 </p>
 
 ---
@@ -20,7 +20,7 @@
                        |      REST API / Web Dashboard     |
                        +-----------------+-----------------+
                                          |
-                            (Start / Signal / Replay)
+                            (Start / Signal / Intervene)
                                          v
 +-------------------------------------------------------------------------+
 |                              Nexus Engine                               |
@@ -42,6 +42,12 @@
 |  |   Saga Coordinator     |                     | Signal & Timer     |  |
 |  | (Backward Compensate)  |                     | (Chronos / V-Th)   |  |
 |  +------------------------+                     +--------------------+  |
+|              |                                            |             |
+|              v                                            v             |
+|  +------------------------+                     +--------------------+  |
+|  |   Operator Intervene   |                     | Snapshot & Idemp.  |  |
+|  | (Retry / Skip / Force) |                     | (O(1) Replay / Key)|  |
+|  +------------------------+                     +--------------------+  |
 +-----------------------------------+-------------------------------------+
                                     |
             +-----------------------+-----------------------+
@@ -49,25 +55,30 @@
             v                                               v
 +-----------------------+                       +-----------------------+
 |  nexus_workflow_      |                       |  nexus_workflow_      |
-|  instances            |                       |  events (Append-Only) |
+|  instances & snapshots|                       |  events (Append-Only) |
 +-----------------------+                       +-----------------------+
 ```
 
 ## Overview
 
-Complex backend workflows like customer onboarding, KYC document verification, and multi-service order processing often involve long delays, human approvals, or multi-step rollbacks. Configuring these in static JSON or XML definitions separates business logic from code and complicates local debugging.
+Backend workflows like customer onboarding, KYC document validation, and travel booking sagas often involve long delays, human approvals, or multi-step rollbacks. Configuring these in static JSON or XML definitions separates business logic from code and complicates local debugging.
 
 NexusWorkflow lets you write workflows directly in Java 21 using standard functions and a fluent builder. Every state transition is stored in an append-only PostgreSQL event table. If a worker pod crashes mid-execution, a standby worker reloads the instance history, replays completed steps without re-executing external network calls, and continues execution.
 
 ## Key Capabilities
 
-- **Code-First Java 21 DSL**: Define multi-step DAGs with activity calls, sleeps, external signals, and parallel branches directly in Java.
+- **Code-First Java 21 DSL**: Define multi-step DAGs with activity calls, conditional branching, child workflows, sleeps, external signals, and parallel branches directly in Java.
 - **Durable Event-Sourced Execution**: Completed step outputs are stored as immutable events. On crash recovery, completed activities return cached outputs and avoid duplicate side effects.
-- **Non-Determinism Detection**: Detects if code changes altered step ordering for in-flight workflows, throwing a `NonDeterministicException` before state corruption occurs.
+- **Periodic Snapshotting**: Periodically captures state checkpoints in `nexus_workflow_snapshots` to provide fast O(1) recovery on large workflows without replaying thousands of historical events.
+- **HTTP Idempotency Keys**: Submit requests with an `Idempotency-Key` header to safely retry execution requests without triggering duplicate runs.
+- **Conditional Branching**: Dynamic runtime routing (`choose(stepId, condition, thenBranch, otherwiseBranch)`) based on workflow state.
+- **Hierarchical Child Workflows**: Spawn dedicated sub-workflows (`childWorkflow(...)`) that execute concurrently and feed results back to the parent DAG.
+- **Manual Operator Interventions**: Retry failed steps, skip broken steps, or override step outputs via dedicated REST endpoints and the UI console.
+- **Real-Time Webhooks**: Broadcast workflow status changes (`RUNNING`, `WAITING_SIGNAL`, `COMPLETED`, `FAILED`) to registered subscriber URLs.
+- **Non-Determinism Detection**: Detects if code modifications altered step ordering for in-flight workflows, throwing a `NonDeterministicException` before state corruption occurs.
 - **Backward Saga Compensation**: When an activity exhausts its retries, the engine navigates backward through completed steps and executes declared compensation routines in reverse order.
 - **Java 21 Virtual Threads**: Workflow execution runs on lightweight virtual threads (`Executors.newVirtualThreadPerTaskExecutor()`), keeping memory usage low during concurrency.
-- **Real-Time SVG Visualizer (SSE)**: An embedded web interface at `http://localhost:8080/dashboard` generates an interactive SVG graph with live status updates over Server-Sent Events.
-- **Human-in-the-Loop Signals**: Workflows can pause and await external webhook callbacks or manual approvals, which operators can inject directly from the web console.
+- **Interactive SVG Dashboard**: Built-in web dashboard at `http://localhost:8080/dashboard` featuring live DAG visualization, a Gantt waterfall timeline, operator action modals, search filters, and one-click Mermaid diagram export.
 
 ## Architecture
 
@@ -75,16 +86,31 @@ NexusWorkflow follows Hexagonal Architecture:
 
 - `domain`: Pure Java 21 domain entities, records, and sealed events. Contains zero dependencies on Spring, Hibernate, or Jackson. Enforced by ArchUnit tests.
 - `application`: Fluent builder DSL, `WorkflowEngineImpl`, `DeterministicReplayEngine`, and `SagaCompensationCoordinator`.
-- `infrastructure`: Spring Boot 3.3.3 adapters including PostgreSQL event store persistence, Flyway migrations, REST controllers, and the SVG dashboard.
+- `infrastructure`: Spring Boot 3.3.3 adapters including PostgreSQL event store persistence, Flyway migrations, REST controllers, webhooks, and the SVG dashboard.
 
 ## Defining a Workflow
 
 ```java
+StepDefinition vipBranch = StepDefinition.activity(
+    StepId.of("vip-upgrade"), 
+    "VipUpgradeActivity", 
+    RetryPolicy.none(), 
+    null
+);
+
+StepDefinition standardBranch = StepDefinition.activity(
+    StepId.of("standard-tier"), 
+    "StandardTierActivity", 
+    RetryPolicy.none(), 
+    null
+);
+
 WorkflowDefinition workflow = Workflow.define("user-onboarding")
     .version(1)
     .step("create-account", "CreateAccountActivity", 
           RetryPolicy.builder().maxAttempts(3).build(), 
           "DeleteAccountActivity")
+    .choose("evaluate-tier", state -> Boolean.TRUE.equals(state.get("vip")), vipBranch, standardBranch)
     .step("provision-storage", "ProvisionStorageActivity", 
           RetryPolicy.defaultPolicy(), 
           "ReleaseStorageActivity")
@@ -121,7 +147,7 @@ WorkflowDefinition workflow = Workflow.define("user-onboarding")
    ```
 
 4. Open your browser:
-   - Live SVG DAG Dashboard: `http://localhost:8080/dashboard`
+   - Live DAG Dashboard: `http://localhost:8080/dashboard`
    - OpenAPI Swagger UI: `http://localhost:8080/swagger-ui.html`
    - Prometheus Metrics: `http://localhost:8080/actuator/prometheus`
 
@@ -129,34 +155,43 @@ WorkflowDefinition workflow = Workflow.define("user-onboarding")
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/workflows/{definitionId}/start` | Start a new workflow run |
+| `POST` | `/api/v1/workflows/{definitionId}/start` | Start a new workflow run (supports `Idempotency-Key` header) |
 | `POST` | `/api/v1/workflows/{workflowId}/signals/{signalName}` | Deliver an external signal |
 | `POST` | `/api/v1/workflows/{workflowId}/cancel` | Cancel an active execution |
+| `POST` | `/api/v1/workflows/{workflowId}/steps/{stepId}/retry` | Operator: retry a failed step |
+| `POST` | `/api/v1/workflows/{workflowId}/steps/{stepId}/skip` | Operator: skip step and continue execution |
+| `POST` | `/api/v1/workflows/{workflowId}/steps/{stepId}/override` | Operator: override step output with custom payload |
+| `POST` | `/api/v1/workflows/webhooks` | Register a webhook callback URL |
 | `GET` | `/api/v1/workflows` | List workflow instances |
 | `GET` | `/api/v1/workflows/{workflowId}/status` | Get current execution status |
 | `GET` | `/api/v1/workflows/{workflowId}/history` | Get immutable event audit history |
 | `GET` | `/api/v1/workflows/{workflowId}/live` | SSE stream for real-time updates |
 | `GET` | `/api/v1/workflows/definitions` | List registered workflow definitions |
 
-### Example: Triggering a Workflow
+### Example: Starting with Idempotency Key
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/workflows/user-onboarding/start \
   -H "Content-Type: application/json" \
-  -d '{"input": {"userId": "usr_7891", "email": "dev@example.com"}}'
+  -H "Idempotency-Key: order-req-99402" \
+  -d '{"input": {"userId": "usr_7891", "vip": true}}'
 ```
 
-### Example: Delivering a Signal
+### Example: Operator Step Intervention
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/workflows/{workflowId}/signals/ID_VERIFIED \
+# Skip a problematic step:
+curl -X POST "http://localhost:8080/api/v1/workflows/wf_123/steps/step-2/skip?reason=BypassedByLead"
+
+# Or override output with manual payload:
+curl -X POST http://localhost:8080/api/v1/workflows/wf_123/steps/step-2/override \
   -H "Content-Type: application/json" \
-  -d '{"payload": {"approved": true, "auditor": "ComplianceTeam"}}'
+  -d '{"approved": true, "manualOverride": true}'
 ```
 
 ## Running Tests
 
-Run the test suite, including ArchUnit domain rules and deterministic replay tests:
+Run the test suite, including ArchUnit architecture enforcement, saga compensation tests, idempotency checks, and deterministic replay:
 
 ```bash
 mvn clean test
