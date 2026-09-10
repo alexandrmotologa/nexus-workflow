@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/logo.png?raw=true" alt="NexusWorkflow Logo" width="140" height="140" />
+</p>
+
 <h1 align="center">NexusWorkflow</h1>
 
 <p align="center">
