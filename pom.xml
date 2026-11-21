@@ -13,7 +13,7 @@
 
     <groupId>com.engine.nexus</groupId>
     <artifactId>nexus-workflow</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>nexus-workflow</name>
     <description>Code-first resilient distributed workflow &amp; DAG engine built on Java 21 Virtual Threads</description>
 

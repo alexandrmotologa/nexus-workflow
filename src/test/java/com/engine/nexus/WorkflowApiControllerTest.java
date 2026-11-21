@@ -25,6 +25,15 @@ class WorkflowApiControllerTest {
     private MockMvc mockMvc;
 
     @Test
+    @DisplayName("Should return application version information")
+    void shouldReturnVersion() throws Exception {
+        mockMvc.perform(get("/api/v1/workflows/version"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("nexus-workflow")))
+                .andExpect(jsonPath("$.version", is("1.0.0")));
+    }
+
+    @Test
     @DisplayName("Should list registered workflow definitions")
     void shouldListDefinitions() throws Exception {
         mockMvc.perform(get("/api/v1/workflows/definitions"))

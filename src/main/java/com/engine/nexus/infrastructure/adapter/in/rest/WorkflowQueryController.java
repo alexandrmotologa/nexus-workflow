@@ -70,4 +70,13 @@ public class WorkflowQueryController {
     public ResponseEntity<List<WorkflowDefinition>> listDefinitions() {
         return ResponseEntity.ok(workflowRegistryPort.getAllDefinitions());
     }
+
+    @GetMapping("/version")
+    @Operation(summary = "Get application version information")
+    public ResponseEntity<java.util.Map<String, String>> getVersion() {
+        return ResponseEntity.ok(java.util.Map.of(
+                "name", "nexus-workflow",
+                "version", com.engine.nexus.NexusWorkflowApplication.VERSION
+        ));
+    }
 }

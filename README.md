@@ -17,6 +17,10 @@
   Code-first distributed workflow and DAG engine in Java 21 with event-sourced durable execution, virtual threads, backward saga compensation, snapshots, idempotency keys, and an interactive SVG dashboard.
 </p>
 
+<p align="center">
+  <img src="docs/images/nexus_workflow_demo.gif" alt="NexusWorkflow Interactive Demo" width="800" />
+</p>
+
 ---
 
 ```
